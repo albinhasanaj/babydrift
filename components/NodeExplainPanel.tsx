@@ -19,6 +19,7 @@ interface NodeExplainPanelProps {
   owner: string;
   repo: string;
   onClose: () => void;
+  onExplainDone?: () => void;
 }
 
 // Cache explanations so re-opening a node doesn't re-fetch
@@ -38,6 +39,7 @@ const typeBadgeStyles: Record<string, string> = {
   CONTEXT: "background-color: #0369a1",
   UTILITY: "background-color: #3d2010",
   DRIFT: "background-color: #450a0a; border: 1px solid #ef4444",
+  "unused code": "background-color: #450a0a; border: 1px solid #ef4444",
 };
 
 export function NodeExplainPanel({
@@ -45,6 +47,7 @@ export function NodeExplainPanel({
   owner,
   repo,
   onClose,
+  onExplainDone,
 }: NodeExplainPanelProps) {
   const [explanation, setExplanation] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,6 +69,7 @@ export function NodeExplainPanel({
       setExplanation(cached);
       setLoading(false);
       setError(false);
+      onExplainDone?.();
       return;
     }
 
@@ -115,6 +119,7 @@ export function NodeExplainPanel({
         // Cache the completed explanation
         explanationCache.set(key, full);
         setLoading(false);
+        onExplainDone?.();
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           setError(true);
@@ -223,7 +228,7 @@ export function NodeExplainPanel({
         </button>
       </div>
 
-      {/* Drift warning */}
+      {/* Unused code warning */}
       {node?.isDrift && node.driftReason && (
         <div
           style={{
@@ -235,7 +240,7 @@ export function NodeExplainPanel({
             marginBottom: 12,
           }}
         >
-          ⚠ Drift detected — {node.driftReason}
+          ⚠ Unused code — {node.driftReason}
         </div>
       )}
 

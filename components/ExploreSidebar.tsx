@@ -121,10 +121,10 @@ export function ExploreSidebar({
     <aside className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-comprendo-border bg-comprendo-surface">
       <div className="p-5">
         <h2 className="text-lg font-semibold text-comprendo-text">
-          Entry Points
+          Important Parts
         </h2>
         <p className="mt-1 text-xs text-comprendo-faint">
-          {totalFlows} flow{totalFlows !== 1 ? "s" : ""} found
+          {totalFlows} item{totalFlows !== 1 ? "s" : ""} found
         </p>
       </div>
 
@@ -150,7 +150,7 @@ export function ExploreSidebar({
 
         {groups.length === 0 && (
           <p className="px-2 py-8 text-center text-xs text-comprendo-faint">
-            No entry points. Run a scan first.
+            No important parts found yet.
           </p>
         )}
       </div>

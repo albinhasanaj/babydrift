@@ -33,7 +33,7 @@ export function DetailPanel({ node, onClose }: DetailPanelProps) {
 
       <div className="mb-3 flex flex-wrap gap-2">
         <span className="rounded bg-comprendo-elevated px-2 py-0.5 text-[11px] font-medium text-comprendo-accent">
-          {node.nodeType}
+          {node.nodeType === "function" ? "Function" : node.nodeType === "branch" ? "Decision" : node.nodeType === "section" ? "Section" : node.nodeType}
         </span>
         {node.branchKind && (
           <span className="rounded bg-comprendo-elevated px-2 py-0.5 text-[11px] font-medium text-comprendo-warm">
@@ -64,9 +64,6 @@ export function DetailPanel({ node, onClose }: DetailPanelProps) {
       <div className="mt-3 flex gap-4 text-[11px] text-comprendo-faint">
         <span>depth: {node.treeDepth}</span>
         <span>children: {node.children.length}</span>
-        {node.edgeConfidence != null && (
-          <span>confidence: {Math.round(node.edgeConfidence * 100)}%</span>
-        )}
       </div>
     </div>
   );

@@ -247,7 +247,18 @@ function CategoryGroup({
             style={{ overflow: "hidden" }}
           >
             <div className="mb-1 mt-0.5 flex flex-col gap-0.5 pl-4">
-              {files.map((node) => (
+              {files.map((node) => {
+                // Show parent directory for ambiguous names like page.tsx, route.ts, layout.tsx
+                const ambiguous = /^(page|layout|route|loading|error|not-found|template|default)\.[tj]sx?$/.test(node.name);
+                const displayName = ambiguous
+                  ? (() => {
+                      const parts = node.path.replace(/\\/g, "/").split("/");
+                      if (parts.length >= 2) return parts[parts.length - 2] + "/" + node.name;
+                      return node.name;
+                    })()
+                  : node.name;
+
+                return (
                 <button
                   key={node.path}
                   onClick={() => { onSelectFile(node.path, node.flowIds); }}
@@ -263,13 +274,14 @@ function CategoryGroup({
                       selectedFile === node.path ? "text-white" : "text-comprendo-faint"
                     }`}
                   />
-                  <span className="flex-1 truncate">{node.name}</span>
+                  <span className="flex-1 truncate">{displayName}</span>
                   <span className={`flex shrink-0 items-center gap-0.5 text-[10px] tabular-nums ${selectedFile === node.path ? "text-white/70" : "text-comprendo-accent"}`}>
                     <Zap className="h-2.5 w-2.5" />
                     {node.flowIds.length}
                   </span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
         )}
@@ -490,7 +502,7 @@ export function FileTreeSidebar({
                   if (entries.length === 0) {
                     return (
                       <p className="px-5 py-8 text-center text-xs text-comprendo-faint">
-                        No entry points found.
+                        No important parts found.
                       </p>
                     );
                   }
