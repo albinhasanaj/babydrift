@@ -84,6 +84,9 @@ function classifyFunction(
     ["GET", "POST", "PUT", "DELETE", "PATCH"].includes(name)
   )
     return "API";
+  // Respect file-level classification for pages and layouts
+  if (fileType === "PAGE" && hasJsx && /^[A-Z]/.test(name)) return "PAGE";
+  if (fileType === "LAYOUT" && hasJsx && /^[A-Z]/.test(name)) return "LAYOUT";
   if (hasJsx && /^[A-Z]/.test(name)) return "COMPONENT";
   return "FUNCTION";
 }
