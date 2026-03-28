@@ -221,7 +221,7 @@ export function Navbar({ showBack, breadcrumb, children, traceId, onHighlightNod
 
         <div className="flex items-center gap-3">
           {/* ComprendoMan chat button */}
-          <div className="relative" ref={popupRef}>
+          {traceId && <div className="relative" ref={popupRef}>
             <button
               onClick={() => setChatOpen((v) => !v)}
               className="flex items-center justify-center rounded-md p-1 transition-opacity hover:opacity-80"
@@ -336,10 +336,10 @@ export function Navbar({ showBack, breadcrumb, children, traceId, onHighlightNod
                 <style>{`@keyframes blink { 50% { opacity: 0; } }`}</style>
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Share button */}
-          <div className="relative" ref={shareRef}>
+          {traceId && <div className="relative" ref={shareRef}>
             <button
               onClick={() => setShareOpen((v) => !v)}
               className="flex items-center justify-center rounded-md p-1.5 text-comprendo-muted transition-colors hover:text-comprendo-text"
@@ -404,7 +404,7 @@ export function Navbar({ showBack, breadcrumb, children, traceId, onHighlightNod
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
           {children}
           {status === "loading" ? (
