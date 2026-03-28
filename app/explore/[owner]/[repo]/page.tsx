@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { FileTreeSidebar } from "@/components/FileTreeSidebar";
 import { FlowCanvas } from "@/components/FlowCanvas";
 import { DetailPanel } from "@/components/DetailPanel";
+import { NodeExplainPanel } from "@/components/NodeExplainPanel";
 import { useExploreData } from "@/hooks/useExploreData";
 import { useExploreDerived } from "@/hooks/useExploreDerived";
 import type { LaidNode } from "@/lib/explorer/types";
@@ -194,6 +195,22 @@ export default function ExplorePage() {
                 node={selectedNode}
                 onClose={() => setSelectedNodeId(null)}
               />
+                <NodeExplainPanel
+                  node={
+                    selectedNode
+                      ? {
+                          id: selectedNode.id,
+                          label: selectedNode.label,
+                          type: selectedNode.nodeType,
+                          filePath: selectedNode.filePath,
+                          line: selectedNode.startLine,
+                        }
+                      : null
+                  }
+                  owner={owner}
+                  repo={repo}
+                  onClose={() => setSelectedNodeId(null)}
+                />
             </>
           )}
         </main>

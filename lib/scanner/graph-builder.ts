@@ -82,10 +82,12 @@ export function buildGraph(
 
   // 2. Add file-level fallback for files with zero nodes
   //    Skip index files — their named exports are already separate nodes
+  //    Skip empty files (no nodes, no imports, no calls) — nothing useful to show
   for (const pf of parsedFiles) {
     if (pf.nodes.length === 0) {
       const fileName = path.basename(pf.filePath, path.extname(pf.filePath));
       if (fileName === "index") continue;
+      if (pf.imports.length === 0 && pf.calls.length === 0) continue;
       const id = `${pf.filePath}::${fileName}`;
       if (!nodeMap.has(id)) {
         nodeMap.set(id, {
@@ -192,11 +194,11 @@ export function buildGraph(
       const sourceNodes = fileNodes.get(pf.filePath);
       if (!sourceNodes || sourceNodes.length === 0) continue;
 
-      // Find first component/page node in source file as the renderer
-      const renderer =
-        sourceNodes.find(
-          (n) => n.type === "COMPONENT" || n.type === "PAGE" || n.type === "LAYOUT"
-        ) || sourceNodes[0];
+      // Find a component/page/layout node in source file as the renderer
+      const renderer = sourceNodes.find(
+        (n) => n.type === "COMPONENT" || n.type === "PAGE" || n.type === "LAYOUT"
+      );
+      if (!renderer) continue;
 
       edges.push({
         id: `edge-${edgeCounter++}`,

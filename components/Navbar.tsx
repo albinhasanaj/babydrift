@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,7 @@ export function Navbar({ showBack, breadcrumb }: NavbarProps) {
             </button>
           )}
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-comprendo-primary">
-              <span className="text-sm font-bold text-white">C</span>
-            </div>
+            <Image src="/logo/LogoMark_W.svg" alt="Comprendo" width={28} height={28} />
             <span className="text-lg font-semibold text-comprendo-text">Comprendo</span>
           </Link>
           {breadcrumb && (

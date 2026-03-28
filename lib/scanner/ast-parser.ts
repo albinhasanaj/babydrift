@@ -105,6 +105,33 @@ function bindParents(node: ts.Node) {
   });
 }
 
+const COMPONENT_FACTORY_NAMES = new Set([
+  "forwardRef", "memo", "cva",
+]);
+
+function isComponentLikeInitializer(init: ts.Expression): boolean {
+  // forwardRef(...), memo(...), cva(...), React.forwardRef(...), React.memo(...)
+  if (ts.isCallExpression(init)) {
+    const expr = init.expression;
+    if (ts.isIdentifier(expr) && COMPONENT_FACTORY_NAMES.has(expr.text)) {
+      return true;
+    }
+    if (
+      ts.isPropertyAccessExpression(expr) &&
+      ts.isIdentifier(expr.expression) &&
+      expr.expression.text === "React" &&
+      COMPONENT_FACTORY_NAMES.has(expr.name.text)
+    ) {
+      return true;
+    }
+  }
+  // Tagged template literal: styled.div`...`
+  if (ts.isTaggedTemplateExpression(init)) {
+    return true;
+  }
+  return false;
+}
+
 export function parseFile(
   filePath: string,
   classification: FileClassification,
@@ -166,6 +193,25 @@ export function parseFile(
   }
   collectCalls(sf);
 
+  // Helper: check if a node is at the top level of the source file
+  function isTopLevelNode(node: ts.Node): boolean {
+    const parent = node.parent;
+    if (!parent) return false;
+    // Direct child of SourceFile
+    if (ts.isSourceFile(parent)) return true;
+    // VariableDeclaration → VariableDeclarationList → VariableStatement → SourceFile
+    if (ts.isVariableDeclaration(parent)) {
+      const declList = parent.parent;
+      if (declList && ts.isVariableDeclarationList(declList)) {
+        const stmt = declList.parent;
+        if (stmt && ts.isVariableStatement(stmt) && stmt.parent && ts.isSourceFile(stmt.parent)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   // Second pass: extract all info
   function visit(node: ts.Node) {
     // IMPORTS
@@ -193,8 +239,8 @@ export function parseFile(
       }
     }
 
-    // FUNCTION DECLARATIONS
-    if (ts.isFunctionDeclaration(node) && node.name) {
+    // FUNCTION DECLARATIONS (top-level only)
+    if (ts.isFunctionDeclaration(node) && node.name && isTopLevelNode(node)) {
       const name = node.name.text;
       const exported = isNodeExported(node) || exportedNames.has(name);
       const asyncFn = isAsyncFunction(node);
@@ -231,10 +277,34 @@ export function parseFile(
       });
     }
 
-    // VARIABLE STATEMENTS with arrow/function expression
-    if (ts.isVariableStatement(node)) {
+    // VARIABLE STATEMENTS with arrow/function expression (top-level only)
+    if (ts.isVariableStatement(node) && node.parent && ts.isSourceFile(node.parent)) {
       const stmtExported = isVariableStatementExported(node);
       for (const decl of node.declarationList.declarations) {
+        // Destructured re-export: export const { GET, POST } = handlers
+        if (ts.isObjectBindingPattern(decl.name) && stmtExported && classification.primaryType === "API") {
+          const httpMethods = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]);
+          for (const el of decl.name.elements) {
+            if (ts.isIdentifier(el.name) && httpMethods.has(el.name.text)) {
+              const name = el.name.text;
+              exports.push(name);
+              nodes.push({
+                id: makeNodeId(relativePath, name),
+                label: name,
+                type: "API",
+                filePath: relativePath,
+                line: sf.getLineAndCharacterOfPosition(el.getStart(sf)).line + 1,
+                isClientComponent: false,
+                isAsync: false,
+                isExported: true,
+                isDrift: false,
+                position: { x: 0, y: 0 },
+              });
+            }
+          }
+          continue;
+        }
+
         if (ts.isIdentifier(decl.name) && decl.initializer) {
           if (
             ts.isArrowFunction(decl.initializer) ||
@@ -280,6 +350,31 @@ export function parseFile(
               isExported: effectivelyExported,
               isDrift,
               driftReason: isDrift ? "Exported but never called" : undefined,
+              position: { x: 0, y: 0 },
+            });
+          } else if (
+            /^[A-Z]/.test(decl.name.text) &&
+            isComponentLikeInitializer(decl.initializer)
+          ) {
+            // forwardRef, memo, cva, or tagged template components
+            const name = decl.name.text;
+            const exportedByRef = exportedNames.has(name);
+            const effectivelyExported = stmtExported || exportedByRef;
+
+            if (effectivelyExported) exports.push(name);
+
+            nodes.push({
+              id: makeNodeId(relativePath, name),
+              label: name,
+              type: "COMPONENT",
+              filePath: relativePath,
+              line:
+                sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line +
+                1,
+              isClientComponent: classification.isClientComponent,
+              isAsync: false,
+              isExported: effectivelyExported,
+              isDrift: false,
               position: { x: 0, y: 0 },
             });
           }
