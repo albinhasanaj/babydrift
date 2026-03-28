@@ -79,18 +79,19 @@ export function CanvasEdges({ nodes }: CanvasEdgesProps) {
         zIndex: 1,
       }}
     >
-      {edges.map((e, i) => (
-        <line
-          key={i}
-          x1={e.x1}
-          y1={e.y1}
-          x2={e.x2}
-          y2={e.y2}
-          stroke={e.stroke}
-          strokeWidth={2}
-          strokeDasharray={e.dashArray}
-        />
-      ))}
+      {edges.map((e, i) => {
+        const cx = (e.x1 + e.x2) / 2;
+        return (
+          <path
+            key={i}
+            d={`M ${e.x1} ${e.y1} C ${cx} ${e.y1}, ${cx} ${e.y2}, ${e.x2} ${e.y2}`}
+            fill="none"
+            stroke={e.stroke}
+            strokeWidth={2}
+            strokeDasharray={e.dashArray}
+          />
+        );
+      })}
     </svg>
   );
 }
