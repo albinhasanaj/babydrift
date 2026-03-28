@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Navbar } from "@/components/Navbar";
 import { RepoCard } from "@/components/RepoCard";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 
-const mockRepos = [
+interface Repo {
+  id: number;
+  name: string;
+  description: string;
+  language: string;
+  stars: number;
+  updatedAt: string;
+  owner: string;
+}
+
+const mockRepos: Repo[] = [
   {
     id: 1,
     name: "my-saas-app",
@@ -64,10 +75,73 @@ const mockRepos = [
   },
 ];
 
-export default function ReposPage() {
-  const [search, setSearch] = useState("");
+function timeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return "1 week ago";
+  return `${weeks} weeks ago`;
+}
 
-  const filtered = mockRepos.filter(
+export default function ReposPage() {
+  const { data: session, status } = useSession();
+  const [search, setSearch] = useState("");
+  const [repos, setRepos] = useState<Repo[]>(mockRepos);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchRepos = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/repos");
+      if (!res.ok) throw new Error("Failed to fetch repos");
+      const data = await res.json();
+      const mapped: Repo[] = data.repos.map(
+        (r: {
+          id: number;
+          name: string;
+          owner: string;
+          description: string | null;
+          language: string | null;
+          stars: number;
+          updatedAt: string;
+        }) => ({
+          id: r.id,
+          name: r.name,
+          owner: r.owner,
+          description: r.description ?? "",
+          language: r.language ?? "Unknown",
+          stars: r.stars,
+          updatedAt: timeAgo(r.updatedAt),
+        })
+      );
+      setRepos(mapped);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load repositories. Using demo data.");
+      setRepos(mockRepos);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchRepos();
+    }
+  }, [status, fetchRepos]);
+
+  const filtered = repos.filter(
     (repo) =>
       repo.name.toLowerCase().includes(search.toLowerCase()) ||
       repo.description.toLowerCase().includes(search.toLowerCase())
@@ -83,8 +157,13 @@ export default function ReposPage() {
             Your Repositories
           </h1>
           <p className="mt-2 text-comprendo-muted">
-            Select a repository to analyze
+            {session
+              ? "Select a repository to analyze"
+              : "Demo mode — sign in with GitHub to see your real repos"}
           </p>
+          {error && (
+            <p className="mt-2 text-sm text-comprendo-drift">{error}</p>
+          )}
         </div>
 
         <div className="relative mb-8">
@@ -97,16 +176,25 @@ export default function ReposPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((repo) => (
-            <RepoCard key={repo.id} {...repo} />
-          ))}
-        </div>
-
-        {filtered.length === 0 && (
-          <div className="py-20 text-center text-comprendo-muted">
-            No repositories match your search.
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-comprendo-accent" />
+            <span className="ml-3 text-comprendo-muted">Loading your repositories...</span>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((repo) => (
+                <RepoCard key={repo.id} {...repo} />
+              ))}
+            </div>
+
+            {filtered.length === 0 && (
+              <div className="py-20 text-center text-comprendo-muted">
+                No repositories match your search.
+              </div>
+            )}
+          </>
         )}
       </main>
 

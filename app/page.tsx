@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { Zap, GitBranch, AlertTriangle } from "lucide-react";
+import { Zap, GitBranch, AlertTriangle, LogIn } from "lucide-react";
 
 const features = [
   {
@@ -28,6 +30,12 @@ const features = [
 
 export default function Home() {
   const router = useRouter();
+  const { data: session } = useSession();
+
+  // If already logged in, redirect to repos
+  useEffect(() => {
+    if (session) router.replace("/repos");
+  }, [session, router]);
 
   return (
     <div className="flex min-h-screen flex-col bg-comprendo-bg">
@@ -57,9 +65,10 @@ export default function Home() {
           <div className="flex items-center gap-4 pt-2">
             <Button
               size="lg"
-              onClick={() => router.push("/repos")}
+              onClick={() => signIn("github", { callbackUrl: "/repos" })}
               className="bg-comprendo-primary px-8 text-white hover:bg-comprendo-primary-hover"
             >
+              <LogIn className="mr-2 h-5 w-5" />
               Connect GitHub
             </Button>
             <Button

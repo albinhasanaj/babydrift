@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, Clock } from "lucide-react";
+import { Star, Clock, Loader2 } from "lucide-react";
 
 interface RepoCardProps {
   id: number;
@@ -25,6 +27,34 @@ export function RepoCard({
   owner,
 }: RepoCardProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const [cloning, setCloning] = useState(false);
+
+  async function handleAnalyze() {
+    if (!session) {
+      // Demo mode — go directly
+      router.push(`/repo/${owner}/${name}`);
+      return;
+    }
+
+    // Clone the repo first, then navigate
+    setCloning(true);
+    try {
+      const res = await fetch("/api/repos/clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner, name }),
+      });
+      if (!res.ok) {
+        console.error("Clone failed:", await res.text());
+      }
+    } catch (err) {
+      console.error("Clone error:", err);
+    } finally {
+      setCloning(false);
+    }
+    router.push(`/repo/${owner}/${name}`);
+  }
 
   return (
     <Card className="group border-comprendo-border bg-comprendo-surface transition-all hover:border-comprendo-primary/40 hover:bg-comprendo-elevated">
@@ -58,10 +88,18 @@ export function RepoCard({
         </div>
 
         <Button
-          onClick={() => router.push(`/repo/${owner}/${name}`)}
-          className="mt-auto w-full bg-comprendo-primary text-white hover:bg-comprendo-primary-hover"
+          onClick={handleAnalyze}
+          disabled={cloning}
+          className="mt-auto w-full bg-comprendo-primary text-white hover:bg-comprendo-primary-hover disabled:opacity-60"
         >
-          Analyze
+          {cloning ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Cloning...
+            </>
+          ) : (
+            "Analyze"
+          )}
         </Button>
       </CardContent>
     </Card>

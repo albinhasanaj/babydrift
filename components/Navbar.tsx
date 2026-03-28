@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ArrowLeft, LogOut, LogIn } from "lucide-react";
 
 interface NavbarProps {
   showBack?: boolean;
@@ -12,9 +13,8 @@ interface NavbarProps {
 }
 
 export function Navbar({ showBack, breadcrumb }: NavbarProps) {
-  const pathname = usePathname();
   const router = useRouter();
-  const isAuthenticated = pathname.startsWith("/repos") || pathname.startsWith("/repo/");
+  const { data: session, status } = useSession();
 
   return (
     <nav className="sticky top-0 z-50 h-14 border-b border-comprendo-border bg-comprendo-bg/80 backdrop-blur-md">
@@ -43,20 +43,27 @@ export function Navbar({ showBack, breadcrumb }: NavbarProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          {isAuthenticated ? (
+          {status === "loading" ? (
+            <div className="h-7 w-20 animate-pulse rounded bg-comprendo-elevated" />
+          ) : session ? (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Avatar className="h-7 w-7">
+                  {session.user?.image && (
+                    <AvatarImage src={session.user.image} alt={session.user.name ?? ""} />
+                  )}
                   <AvatarFallback className="bg-comprendo-elevated text-xs text-comprendo-accent">
-                    D
+                    {session.user?.name?.[0]?.toUpperCase() ?? "U"}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm text-comprendo-text">demo</span>
+                <span className="text-sm text-comprendo-text">
+                  {session.user?.name ?? session.user?.email}
+                </span>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push("/")}
+                onClick={() => signOut({ callbackUrl: "/" })}
                 className="text-comprendo-muted hover:text-comprendo-text hover:bg-comprendo-elevated"
               >
                 <LogOut className="mr-1 h-3.5 w-3.5" />
@@ -67,9 +74,10 @@ export function Navbar({ showBack, breadcrumb }: NavbarProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/repos")}
+              onClick={() => signIn("github", { callbackUrl: "/repos" })}
               className="text-comprendo-muted hover:text-comprendo-text hover:bg-comprendo-elevated"
             >
+              <LogIn className="mr-1.5 h-4 w-4" />
               Sign in with GitHub
             </Button>
           )}

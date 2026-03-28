@@ -38,4 +38,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# comprendo data (sqlite + cloned repos)
+/data/
 next-env.d.ts
