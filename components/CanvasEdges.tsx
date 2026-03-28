@@ -23,7 +23,7 @@ function getEdgeColor(node: LaidNode): { stroke: string; dashArray?: string } {
 
 export function CanvasEdges({ nodes }: CanvasEdgesProps) {
   const nodeMap = new Map<string, LaidNode>();
-  for (const n of nodes) nodeMap.set(n.id, n);
+  for (const n of nodes) nodeMap.set(n.layoutId, n);
 
   const edges: {
     x1: number;
