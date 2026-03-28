@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useEffect } from "react";
 import Image from "next/image";
 import {
@@ -97,7 +97,7 @@ export default function Home() {
           </span>
         </div>
         <button
-          onClick={() => router.push("/repos")}
+          onClick={() => signIn("github", { callbackUrl: "/repos" })}
           className="px-5 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-heading font-bold hover:bg-primary/90 transition-colors"
         >
           Open App
@@ -113,7 +113,7 @@ export default function Home() {
           Comprendo?
         </h1>
         <button
-          onClick={() => router.push("/repos")}
+          onClick={() => signIn("github", { callbackUrl: "/repos" })}
           className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-primary text-primary-foreground text-base font-heading font-bold hover:bg-primary/90 transition-all hover:gap-3"
         >
           Get started
