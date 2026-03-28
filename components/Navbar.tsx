@@ -11,9 +11,10 @@ import { ArrowLeft, LogOut, LogIn } from "lucide-react";
 interface NavbarProps {
   showBack?: boolean;
   breadcrumb?: string;
+  children?: React.ReactNode;
 }
 
-export function Navbar({ showBack, breadcrumb }: NavbarProps) {
+export function Navbar({ showBack, breadcrumb, children }: NavbarProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
 
@@ -42,6 +43,7 @@ export function Navbar({ showBack, breadcrumb }: NavbarProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          {children}
           {status === "loading" ? (
             <div className="h-7 w-20 animate-pulse rounded bg-comprendo-elevated" />
           ) : session ? (

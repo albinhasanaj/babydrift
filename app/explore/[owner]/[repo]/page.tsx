@@ -10,7 +10,7 @@ import { NodeExplainPanel } from "@/components/NodeExplainPanel";
 import { useExploreData } from "@/hooks/useExploreData";
 import { useExploreDerived } from "@/hooks/useExploreDerived";
 import type { LaidNode } from "@/lib/explorer/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ExplorePage() {
@@ -115,7 +115,19 @@ export default function ExplorePage() {
 
   return (
     <div className="flex h-screen flex-col bg-comprendo-bg">
-      <Navbar showBack breadcrumb={fullName} />
+      <Navbar showBack breadcrumb={fullName}>
+        {traceId && !scanning && (
+          <Button
+            onClick={handleScan}
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-comprendo-muted hover:text-comprendo-text"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Rescan
+          </Button>
+        )}
+      </Navbar>
 
       <div className="flex flex-1 overflow-hidden">
         <FileTreeSidebar

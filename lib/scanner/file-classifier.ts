@@ -60,37 +60,37 @@ function detectClientDirective(filePath: string): boolean {
 function classifyByPath(relativePath: string, fileName: string): NodeType {
   const normalized = relativePath.replace(/\\/g, "/");
 
-  // App Router patterns
-  if (/^app\/.*\/page\.[tj]sx?$/.test(normalized) || /^app\/page\.[tj]sx?$/.test(normalized)) {
+  // App Router patterns (handles both top-level app/ and nested like sub_app/app/)
+  if (/(?:^|\/)app\/.*\/page\.[tj]sx?$/.test(normalized) || /(?:^|\/)app\/page\.[tj]sx?$/.test(normalized)) {
     return "PAGE";
   }
-  if (/^app\/.*\/layout\.[tj]sx?$/.test(normalized) || /^app\/layout\.[tj]sx?$/.test(normalized)) {
+  if (/(?:^|\/)app\/.*\/layout\.[tj]sx?$/.test(normalized) || /(?:^|\/)app\/layout\.[tj]sx?$/.test(normalized)) {
     return "LAYOUT";
   }
-  if (/^app\/api\/.*\/route\.[tj]s$/.test(normalized) || /^app\/api\/route\.[tj]s$/.test(normalized)) {
+  if (/(?:^|\/)app\/api\/.*\/route\.[tj]s$/.test(normalized) || /(?:^|\/)app\/api\/route\.[tj]s$/.test(normalized)) {
     return "API";
   }
 
   // Hooks
-  if (/^hooks\/use[A-Z]/.test(normalized) || /use[A-Z][a-zA-Z]*\.[tj]sx?$/.test(fileName)) {
+  if (/(?:^|\/)hooks\/use[A-Z]/.test(normalized) || /use[A-Z][a-zA-Z]*\.[tj]sx?$/.test(fileName)) {
     return "HOOK";
   }
 
   // Context
-  if (normalized.startsWith("context/") || /Context\.[tj]sx?$/.test(fileName)) {
+  if (/(?:^|\/)context\//.test(normalized) || /Context\.[tj]sx?$/.test(fileName)) {
     return "CONTEXT";
   }
 
   // Components
-  if (normalized.startsWith("components/") || /^[A-Z][a-zA-Z]*\.[tj]sx$/.test(fileName)) {
+  if (/(?:^|\/)components\//.test(normalized) || /^[A-Z][a-zA-Z]*\.[tj]sx$/.test(fileName)) {
     return "COMPONENT";
   }
 
   // Utilities
   if (
-    normalized.startsWith("lib/") ||
-    normalized.startsWith("utils/") ||
-    normalized.startsWith("helpers/")
+    /(?:^|\/)lib\//.test(normalized) ||
+    /(?:^|\/)utils\//.test(normalized) ||
+    /(?:^|\/)helpers\//.test(normalized)
   ) {
     return "UTILITY";
   }

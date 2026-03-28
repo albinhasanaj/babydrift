@@ -23,20 +23,38 @@ export const nextjsPack: FrameworkPack = {
   name: "nextjs",
 
   detect(repoRoot: string): boolean {
+    // Check root level first
     const candidates = [
       "next.config.js",
       "next.config.mjs",
       "next.config.ts",
     ];
-    return candidates.some((f) => fs.existsSync(path.join(repoRoot, f)));
+    if (candidates.some((f) => fs.existsSync(path.join(repoRoot, f)))) {
+      return true;
+    }
+
+    // Check one level deep (monorepos / nested app dirs like SmileySpeak/smileyspeak_app/)
+    try {
+      const entries = fs.readdirSync(repoRoot, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name === "node_modules" || entry.name === ".git") continue;
+        if (candidates.some((f) => fs.existsSync(path.join(repoRoot, entry.name, f)))) {
+          return true;
+        }
+      }
+    } catch {
+      // ignore read errors
+    }
+    return false;
   },
 
   classifyFile(relativePath: string, fileName: string): NodeType | null {
     const normalized = relativePath.replace(/\\/g, "/");
     const baseName = path.basename(fileName, path.extname(fileName));
 
-    // Only apply to files inside app/ directory
-    if (!normalized.startsWith("app/") && !normalized.includes("/app/")) {
+    // Match app/ anywhere in the path (handles monorepos like sub_app/app/...)
+    if (!/(?:^|\/)app\//.test(normalized)) {
       return null;
     }
 
