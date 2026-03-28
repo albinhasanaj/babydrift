@@ -252,8 +252,11 @@ function CategoryGroup({
                 const ambiguous = /^(page|layout|route|loading|error|not-found|template|default)\.[tj]sx?$/.test(node.name);
                 const displayName = ambiguous
                   ? (() => {
-                      const parts = node.path.replace(/\\/g, "/").split("/");
-                      if (parts.length >= 2) return parts[parts.length - 2] + "/" + node.name;
+                      // Strip leading "app/" prefix for cleaner display
+                      const clean = node.path.replace(/\\/g, "/").replace(/^app\//, "");
+                      const parts = clean.split("/");
+                      // Show full remaining path so nested routes like explore/[owner]/[repo]/page.tsx are clear
+                      if (parts.length >= 2) return parts.join("/");
                       return node.name;
                     })()
                   : node.name;
