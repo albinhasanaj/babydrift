@@ -18,7 +18,7 @@ export function FlowCanvas({ nodes, selectedNodeId, onNodeClick }: FlowCanvasPro
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden"
-      style={{ cursor: "grab", background: "#0f0a08" }}
+      style={{ cursor: "grab", background: "#242424" }}
       onMouseDown={handlers.onMouseDown}
       onMouseMove={handlers.onMouseMove}
       onMouseUp={handlers.onMouseUp}

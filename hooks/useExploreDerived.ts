@@ -38,6 +38,7 @@ function layoutSubtree(
   const w = nodeWidth(node.label);
   const subtreeH = getSubtreeHeight(node, expanded);
   const nodeY = y + subtreeH / 2 - NODE_H / 2;
+  const myLayoutId = `${flowId}::${node.id}`;
 
   out.push({
     ...node,
@@ -46,14 +47,14 @@ function layoutSubtree(
     w,
     expanded: expanded.has(node.id),
     parentId,
-    layoutId: `${flowId}::${node.id}`,
+    layoutId: myLayoutId,
     flowGroupLabel,
   });
 
   if (expanded.has(node.id) && node.children.length > 0) {
     let childY = y;
     for (const child of node.children) {
-      layoutSubtree(child, x + w + H_GAP, childY, expanded, node.id, out, flowId);
+      layoutSubtree(child, x + w + H_GAP, childY, expanded, myLayoutId, out, flowId);
       childY += getSubtreeHeight(child, expanded) + V_GAP;
     }
   }

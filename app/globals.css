@@ -48,8 +48,8 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 
   /* Comprendo custom colors */
-  --color-comprendo-bg: #373737;
-  --color-comprendo-surface: #424242;
+  --color-comprendo-bg: #242424;
+  --color-comprendo-surface: #333333;
   --color-comprendo-elevated: #4d4d4d;
   --color-comprendo-border: #555555;
   --color-comprendo-primary: #FD2E00;
