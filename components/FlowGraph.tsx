@@ -21,12 +21,12 @@ const nodeStyles: Record<
   string,
   { bg: string; border: string; text: string }
 > = {
-  PAGE: { bg: "#e8420a", border: "#e8420a", text: "#ffffff" },
-  COMPONENT: { bg: "#c2410c", border: "#c2410c", text: "#ffffff" },
-  FUNCTION: { bg: "#1a1008", border: "#f97316", text: "#ffffff" },
-  API: { bg: "#92400e", border: "#92400e", text: "#ffffff" },
-  UTILITY: { bg: "#3d2010", border: "#3d2010", text: "#a87860" },
-  DRIFT: { bg: "#450a0a", border: "#ef4444", text: "#ef4444" },
+  PAGE: { bg: "#FD2E00", border: "#FD2E00", text: "#FFF6E9" },
+  COMPONENT: { bg: "#CC2500", border: "#CC2500", text: "#FFF6E9" },
+  FUNCTION: { bg: "#424242", border: "#FF9300", text: "#FFF6E9" },
+  API: { bg: "#B36800", border: "#B36800", text: "#FFF6E9" },
+  UTILITY: { bg: "#555555", border: "#555555", text: "#FFF0D5" },
+  DRIFT: { bg: "#4a0d00", border: "#FD2E00", text: "#FD2E00" },
 };
 
 // --- Tree data structure ---
@@ -207,18 +207,18 @@ const nodeTypes = { comprendo: ComprendoNode };
 // --- Legend ---
 function Legend() {
   const items = [
-    { label: "Page", color: "#e8420a" },
-    { label: "Component", color: "#c2410c" },
-    { label: "Function", color: "#f97316", outline: true },
-    { label: "API", color: "#92400e" },
-    { label: "Utility", color: "#3d2010" },
-    { label: "Drift ⚠", color: "#ef4444", outline: true },
+    { label: "Page", color: "#FD2E00" },
+    { label: "Component", color: "#CC2500" },
+    { label: "Function", color: "#FF9300", outline: true },
+    { label: "API", color: "#B36800" },
+    { label: "Utility", color: "#555555" },
+    { label: "Drift ⚠", color: "#FD2E00", outline: true },
   ];
 
   const edgeItems = [
-    { label: "Calls", color: "#f97316", dashed: false },
-    { label: "Imports", color: "#a87860", dashed: true },
-    { label: "Data Flow", color: "#fbbf24", dashed: false },
+    { label: "Calls", color: "#FF9300", dashed: false },
+    { label: "Imports", color: "#FFF0D5", dashed: true },
+    { label: "Data Flow", color: "#FFF0D5", dashed: false },
   ];
 
   return (
@@ -277,27 +277,27 @@ const ROOT_GAP = 20;
 
 function getEdgeStyle(parentType: string, childType: string): Partial<Edge> {
   if (parentType === "PAGE" && childType === "COMPONENT") {
-    return { style: { stroke: "#a87860", strokeDasharray: "5,5" }, animated: false };
+    return { style: { stroke: "#FFF0D5", strokeDasharray: "5,5" }, animated: false };
   }
   if (
     (parentType === "COMPONENT" || parentType === "FUNCTION") &&
     childType === "FUNCTION"
   ) {
-    return { style: { stroke: "#f97316" }, animated: true };
+    return { style: { stroke: "#FF9300" }, animated: true };
   }
   if (
     (parentType === "FUNCTION" || parentType === "DRIFT") &&
     childType === "API"
   ) {
-    return { style: { stroke: "#fbbf24" }, animated: true };
+    return { style: { stroke: "#FFF0D5" }, animated: true };
   }
   if (parentType === "DRIFT" || childType === "DRIFT") {
-    return { style: { stroke: "#ef4444", strokeDasharray: "5,5" } };
+    return { style: { stroke: "#FD2E00", strokeDasharray: "5,5" } };
   }
   if (childType === "UTILITY") {
-    return { style: { stroke: "#a87860", strokeDasharray: "5,5" } };
+    return { style: { stroke: "#FFF0D5", strokeDasharray: "5,5" } };
   }
-  return { style: { stroke: "#f97316" } };
+  return { style: { stroke: "#FF9300" } };
 }
 
 function getSubtreeHeight(node: TreeNode, expanded: Set<string>): number {
@@ -451,15 +451,15 @@ export function FlowGraph({ onNodeSelect }: FlowGraphProps) {
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1}
-          color="#3d2010"
+          color="#555555"
         />
         <Controls position="bottom-left" />
         <MiniMap
           nodeColor={(node) => {
             const type = (node.data as { type?: string })?.type || "UTILITY";
-            return nodeStyles[type]?.bg || "#3d2010";
+            return nodeStyles[type]?.bg || "#555555";
           }}
-          maskColor="rgba(15, 10, 8, 0.8)"
+          maskColor="rgba(55, 55, 55, 0.8)"
           position="bottom-right"
         />
       </ReactFlow>
