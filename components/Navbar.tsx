@@ -19,7 +19,7 @@ export function Navbar({ showBack, breadcrumb, children }: NavbarProps) {
   const { data: session, status } = useSession();
 
   return (
-    <nav className="sticky top-0 z-50 h-14 border-b border-comprendo-border bg-comprendo-bg/80 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 h-14 border-b border-comprendo-border bg-comprendo-surface backdrop-blur-md">
       <div className="flex h-full items-center justify-between px-6">
         <div className="flex items-center gap-3">
           {showBack && (
