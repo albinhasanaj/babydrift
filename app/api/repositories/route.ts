@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { fetchUserRepos } from "@/lib/github";
 import {
   upsertRepo,
   getAllRepos,
@@ -34,14 +37,54 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET /api/repositories — list all connected repos
+// GET /api/repositories — list all repos (GitHub + locally connected)
 export async function GET() {
-  const repos = getAllRepos();
-  return NextResponse.json(
-    repos.map((r) => ({
-      id: r.id,
-      fullName: r.fullName,
-      latestTraceId: r.latestTraceId,
-    }))
-  );
+  const session = await getServerSession(authOptions);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accessToken = (session as any)?.accessToken as string | undefined;
+
+  const localRepos = getAllRepos();
+  const localMap = new Map(localRepos.map((r) => [r.fullName, r]));
+
+  if (!accessToken) {
+    // Not authenticated — return only locally stored repos
+    return NextResponse.json(
+      localRepos.map((r) => ({
+        id: r.id,
+        fullName: r.fullName,
+        latestTraceId: r.latestTraceId,
+      }))
+    );
+  }
+
+  try {
+    const ghRepos = await fetchUserRepos(accessToken);
+
+    const merged = ghRepos.map((gh) => {
+      const local = localMap.get(gh.fullName);
+      return {
+        id: local?.id ?? null,
+        fullName: gh.fullName,
+        name: gh.name,
+        owner: gh.owner,
+        description: gh.description,
+        language: gh.language,
+        stars: gh.stars,
+        updatedAt: gh.updatedAt,
+        latestTraceId: local?.latestTraceId ?? null,
+      };
+    });
+
+    return NextResponse.json(merged);
+  } catch (err) {
+    console.error("Failed to fetch GitHub repos:", err);
+    // Fall back to local repos if GitHub API fails
+    return NextResponse.json(
+      localRepos.map((r) => ({
+        id: r.id,
+        fullName: r.fullName,
+        latestTraceId: r.latestTraceId,
+      }))
+    );
+  }
 }

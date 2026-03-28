@@ -51,19 +51,25 @@ export default function ReposPage() {
       const data = await res.json();
       const mapped: Repo[] = data.map(
         (r: {
-          id: string;
+          id?: string | null;
           fullName: string;
-          latestTraceId: string | null;
+          name?: string;
+          owner?: string;
+          description?: string | null;
+          language?: string | null;
+          stars?: number;
+          updatedAt?: string;
+          latestTraceId?: string | null;
         }) => {
-          const [owner, name] = r.fullName.split("/");
+          const [ownerPart, namePart] = r.fullName.split("/");
           return {
-            id: Number(r.id) || 0,
-            name: name ?? r.fullName,
-            owner: owner ?? "",
-            description: "",
-            language: "TypeScript",
-            stars: 0,
-            updatedAt: "recently",
+            id: Number(r.id) || Math.random(),
+            name: r.name ?? namePart ?? r.fullName,
+            owner: r.owner ?? ownerPart ?? "",
+            description: r.description ?? "",
+            language: r.language ?? "",
+            stars: r.stars ?? 0,
+            updatedAt: r.updatedAt ? timeAgo(r.updatedAt) : "",
           };
         }
       );

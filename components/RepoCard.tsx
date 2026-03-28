@@ -41,20 +41,26 @@ export function RepoCard({
         </div>
 
         <div className="flex items-center gap-3">
-          <Badge
-            variant="outline"
-            className="border-comprendo-accent/30 bg-comprendo-accent/10 text-comprendo-accent"
-          >
-            {language}
-          </Badge>
-          <div className="flex items-center gap-1 text-xs text-comprendo-faint">
-            <Star className="h-3.5 w-3.5" />
-            <span>{stars}</span>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-comprendo-faint">
-            <Clock className="h-3.5 w-3.5" />
-            <span>{updatedAt}</span>
-          </div>
+          {language && (
+            <Badge
+              variant="outline"
+              className="border-comprendo-accent/30 bg-comprendo-accent/10 text-comprendo-accent"
+            >
+              {language}
+            </Badge>
+          )}
+          {stars > 0 && (
+            <div className="flex items-center gap-1 text-xs text-comprendo-faint">
+              <Star className="h-3.5 w-3.5" />
+              <span>{stars}</span>
+            </div>
+          )}
+          {updatedAt && (
+            <div className="flex items-center gap-1 text-xs text-comprendo-faint">
+              <Clock className="h-3.5 w-3.5" />
+              <span>{updatedAt}</span>
+            </div>
+          )}
         </div>
 
         <Button
