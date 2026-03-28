@@ -106,16 +106,33 @@ export default function Home() {
         className="relative flex flex-col items-center justify-center text-center px-6"
         style={{ minHeight: "calc(100vh - 160px)" }}
       >
-        <h1 className="text-5xl md:text-7xl font-heading font-extrabold tracking-tight leading-[1.1] mb-10">
+        <p className="uppercase tracking-[0.3em] text-sm font-heading font-bold text-white/80 mb-6">
+          Code Visualization Platform
+        </p>
+        <h1 className="text-6xl md:text-8xl lg:text-9xl font-heading font-extrabold tracking-tight leading-[1.05] mb-8">
           Comprendo?
         </h1>
-        <button
-          onClick={() => signIn("github", { callbackUrl: "/repos" })}
-          className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-primary text-primary-foreground text-base font-heading font-bold hover:bg-primary/90 transition-all hover:gap-3"
-        >
-          Get started
-          <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
-        </button>
+        <p className="text-base md:text-lg font-mono text-white/80 mb-1">
+          Transform any GitHub repo into interactive visual maps.
+        </p>
+        <p className="text-base md:text-lg font-mono text-white/70 mb-10">
+          Understand architecture, dependencies, and flow — instantly.
+        </p>
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => signIn("github", { callbackUrl: "/repos" })}
+            className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-primary text-primary-foreground text-base font-heading font-bold hover:bg-primary/90 transition-all hover:gap-3"
+          >
+            Get started free
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
+          </button>
+          <a
+            href="#features"
+            className="text-sm font-mono text-white/70 hover:text-white transition-colors"
+          >
+            See how it works ↓
+          </a>
+        </div>
       </section>
 
       {/* Lower content — solid background */}
@@ -127,7 +144,7 @@ export default function Home() {
           </div>
 
           {/* Features — horizontal circular slideshow */}
-          <section className="mb-20">
+          <section id="features" className="mb-20">
             <h2 className="text-3xl md:text-4xl font-heading font-extrabold text-center mb-10">
               Five ways to see your code
             </h2>
