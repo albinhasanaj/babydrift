@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import * as path from "path";
 import * as fs from "fs";
+import { execSync } from "child_process";
 import { scanRepo } from "@/lib/scanner";
 import {
   getRepo,
@@ -52,11 +55,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!fs.existsSync(resolvedClone)) {
-      return NextResponse.json(
-        { error: `Repository not cloned at ${repo.fullName}. Clone it first via POST /api/repos/clone.` },
-        { status: 404 }
-      );
+    // Get access token for authenticated git operations
+    const session = await getServerSession(authOptions);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const accessToken = (session as any)?.accessToken as string | undefined;
+
+    if (fs.existsSync(resolvedClone) && fs.existsSync(path.join(resolvedClone, ".git"))) {
+      // Pull latest changes before scanning
+      try {
+        if (accessToken) {
+          const authUrl = `https://x-access-token:${accessToken}@github.com/${owner}/${name}.git`;
+          execSync(`git remote set-url origin ${authUrl}`, { cwd: resolvedClone, stdio: "pipe" });
+        }
+        execSync("git pull --ff-only", { cwd: resolvedClone, stdio: "pipe", timeout: 30_000 });
+      } catch (pullErr) {
+        console.warn("git pull failed, scanning existing clone:", pullErr);
+      }
+    } else if (!fs.existsSync(resolvedClone)) {
+      // Clone the repo if it doesn't exist yet
+      if (!accessToken) {
+        return NextResponse.json(
+          { error: "Not authenticated. Sign in to clone repositories." },
+          { status: 401 }
+        );
+      }
+      const authUrl = `https://x-access-token:${accessToken}@github.com/${owner}/${name}.git`;
+      fs.mkdirSync(path.dirname(resolvedClone), { recursive: true });
+      execSync(`git clone --depth 1 ${authUrl} ${resolvedClone}`, { stdio: "pipe", timeout: 60_000 });
     }
 
     // Run the scanner
