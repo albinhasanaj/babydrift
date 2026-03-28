@@ -85,5 +85,12 @@ graph construction, and end-to-end pipeline.
 
 ---
 
+## Documentation
+
+- [Technical Docs](TECHNICAL_DOCS.md) — architecture, scanner internals, data flow, and component breakdown
+- [API Reference](API_REFERENCE.md) — all API routes with request/response schemas
+
+---
+
 *Built at the Tech Europe x Google DeepMind x Lovable Hackathon, March 2026.*
 ```
