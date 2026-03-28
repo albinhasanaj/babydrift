@@ -133,6 +133,21 @@ export function parseFile(
   const calls: Array<{ caller: string; callee: string }> = [];
   const jsxComponents: string[] = [];
 
+  // Pre-pass: collect names exported via `export default Name` or `export { Name }`
+  const exportedNames = new Set<string>();
+  for (const stmt of sourceFile.statements) {
+    // export default Identifier
+    if (ts.isExportAssignment(stmt) && !stmt.isExportEquals && ts.isIdentifier(stmt.expression)) {
+      exportedNames.add(stmt.expression.text);
+    }
+    // export { A, B }
+    if (ts.isExportDeclaration(stmt) && stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
+      for (const el of stmt.exportClause.elements) {
+        exportedNames.add((el.propertyName || el.name).text);
+      }
+    }
+  }
+
   // First pass: collect all call expression names
   const allCalledNames = new Set<string>();
   function collectCalls(node: ts.Node) {
@@ -178,7 +193,7 @@ export function parseFile(
     // FUNCTION DECLARATIONS
     if (ts.isFunctionDeclaration(node) && node.name) {
       const name = node.name.text;
-      const exported = isNodeExported(node);
+      const exported = isNodeExported(node) || exportedNames.has(name);
       const asyncFn = isAsyncFunction(node);
       const hasJsx = returnsJsx(node);
       let type = classifyFunction(name, hasJsx, classification.primaryType);
@@ -223,6 +238,7 @@ export function parseFile(
             ts.isFunctionExpression(decl.initializer)
           ) {
             const name = decl.name.text;
+            const exportedByRef = exportedNames.has(name);
             const asyncFn = isAsyncFunction(decl.initializer);
             const hasJsx = returnsJsx(decl.initializer);
             let type = classifyFunction(
@@ -231,8 +247,10 @@ export function parseFile(
               classification.primaryType
             );
 
+            const effectivelyExported = stmtExported || exportedByRef;
+
             const isDrift =
-              stmtExported &&
+              effectivelyExported &&
               !allCalledNames.has(name) &&
               type !== "HOOK" &&
               type !== "API" &&
@@ -244,7 +262,7 @@ export function parseFile(
               type = "DRIFT";
             }
 
-            if (stmtExported) exports.push(name);
+            if (effectivelyExported) exports.push(name);
 
             nodes.push({
               id: makeNodeId(relativePath, name),
@@ -256,7 +274,7 @@ export function parseFile(
                 1,
               isClientComponent: classification.isClientComponent,
               isAsync: asyncFn,
-              isExported: stmtExported,
+              isExported: effectivelyExported,
               isDrift,
               driftReason: isDrift ? "Exported but never called" : undefined,
               position: { x: 0, y: 0 },

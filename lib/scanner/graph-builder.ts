@@ -81,9 +81,11 @@ export function buildGraph(
   }
 
   // 2. Add file-level fallback for files with zero nodes
+  //    Skip index files — their named exports are already separate nodes
   for (const pf of parsedFiles) {
     if (pf.nodes.length === 0) {
       const fileName = path.basename(pf.filePath, path.extname(pf.filePath));
+      if (fileName === "index") continue;
       const id = `${pf.filePath}::${fileName}`;
       if (!nodeMap.has(id)) {
         nodeMap.set(id, {
@@ -156,11 +158,21 @@ export function buildGraph(
   }
 
   // 4. Resolve call edges
+  //    Prefer same-file nodes over cross-file when labels collide
   for (const pf of parsedFiles) {
     for (const call of pf.calls) {
       const callerId = `${pf.filePath}::${call.caller}`;
-      const calleeNode = labelToNode.get(call.callee);
-      if (calleeNode && nodeMap.has(callerId)) {
+      if (!nodeMap.has(callerId)) continue;
+
+      // Try same-file first
+      const sameFileNodes = fileNodes.get(pf.filePath);
+      let calleeNode = sameFileNodes?.find((n) => n.label === call.callee);
+      // Fall back to global label lookup
+      if (!calleeNode) {
+        calleeNode = labelToNode.get(call.callee);
+      }
+
+      if (calleeNode) {
         edges.push({
           id: `edge-${edgeCounter++}`,
           source: callerId,
