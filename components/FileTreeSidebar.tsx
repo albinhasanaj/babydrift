@@ -22,7 +22,9 @@ import type { LucideIcon } from "lucide-react";
 interface FileTreeSidebarProps {
   tree: FileTreeNode | null;
   selectedFile: string | null;
+  selectedCategory: string | null;
   onSelectFile: (filePath: string, flowIds: string[]) => void;
+  onSelectCategory: (categoryKey: string, filePaths: string[]) => void;
 }
 
 function flattenEntryFiles(node: FileTreeNode, out: FileTreeNode[] = []): FileTreeNode[] {
@@ -153,57 +155,99 @@ function groupByCategory(files: FileTreeNode[]): { cat: FileCategory; files: Fil
 function CategoryGroup({
   cat,
   files,
+  open,
   selectedFile,
+  selectedCategory,
   onSelectFile,
+  onSelectCategory,
+  onToggleOpen,
 }: {
   cat: FileCategory;
   files: FileTreeNode[];
+  open: boolean;
   selectedFile: string | null;
+  selectedCategory: string | null;
   onSelectFile: (filePath: string, flowIds: string[]) => void;
+  onSelectCategory: (categoryKey: string, filePaths: string[]) => void;
+  onToggleOpen: (categoryKey: string) => void;
 }) {
-  const [open, setOpen] = useState(true);
   const { Icon } = cat;
+  const isCategoryActive = selectedCategory === cat.key;
 
   return (
     <div className="mb-0.5">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="group flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-comprendo-elevated"
+      <div
+        className={`group flex w-full items-center rounded-md transition-colors ${
+          isCategoryActive
+            ? "bg-comprendo-primary text-white"
+            : "hover:bg-comprendo-elevated"
+        }`}
       >
-        <Icon className="h-4 w-4 shrink-0 text-comprendo-faint transition-colors group-hover:text-comprendo-muted" />
-        <span className="flex-1 text-sm font-medium text-comprendo-muted transition-colors group-hover:text-comprendo-text">
-          {cat.label}
-        </span>
-        <span className="mr-1 shrink-0 text-[10px] tabular-nums text-comprendo-faint">
-          {files.length}
-        </span>
-        <ChevronRight
-          className={`h-3.5 w-3.5 shrink-0 text-comprendo-faint transition-transform duration-150 ${
-            open ? "rotate-90" : ""
-          }`}
-        />
-      </button>
+        {/* Icon + label — selects category overview and opens it */}
+        <button
+          onClick={() => {
+            onSelectCategory(cat.key, files.map((f) => f.path));
+            onToggleOpen(cat.key);
+          }}
+          className="flex flex-1 items-center gap-2.5 px-3 py-2 text-left"
+        >
+          <Icon
+            className={`h-4 w-4 shrink-0 transition-colors ${
+              isCategoryActive
+                ? "text-white"
+                : "text-comprendo-faint group-hover:text-comprendo-muted"
+            }`}
+          />
+          <span
+            className={`flex-1 text-sm font-medium transition-colors ${
+              isCategoryActive
+                ? "text-white"
+                : "text-comprendo-muted group-hover:text-comprendo-text"
+            }`}
+          >
+            {cat.label}
+          </span>
+          <span
+            className={`mr-1 shrink-0 text-[10px] tabular-nums ${
+              isCategoryActive ? "text-white/70" : "text-comprendo-faint"
+            }`}
+          >
+            {files.length}
+          </span>
+        </button>
+        {/* Chevron — only toggles collapse */}
+        <button
+          onClick={() => onToggleOpen(cat.key)}
+          className="flex h-full items-center px-2 py-2"
+        >
+          <ChevronRight
+            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
+              isCategoryActive ? "text-white/70" : "text-comprendo-faint"
+            } ${open ? "rotate-90" : ""}`}
+          />
+        </button>
+      </div>
 
       {open && (
         <div className="mb-1 mt-0.5 flex flex-col gap-0.5 pl-4">
           {files.map((node) => (
             <button
               key={node.path}
-              onClick={() => onSelectFile(node.path, node.flowIds)}
+              onClick={() => { onSelectFile(node.path, node.flowIds); }}
               title={node.path}
               className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs transition-colors ${
                 selectedFile === node.path
-                  ? "bg-comprendo-accent/15 text-comprendo-accent"
+                  ? "bg-comprendo-primary text-white"
                   : "text-comprendo-muted hover:bg-comprendo-elevated hover:text-comprendo-text"
               }`}
             >
               <FileCode
                 className={`h-3.5 w-3.5 shrink-0 ${
-                  selectedFile === node.path ? "text-comprendo-accent" : "text-comprendo-faint"
+                  selectedFile === node.path ? "text-white" : "text-comprendo-faint"
                 }`}
               />
               <span className="flex-1 truncate">{node.name}</span>
-              <span className="flex shrink-0 items-center gap-0.5 text-[10px] tabular-nums text-comprendo-accent">
+              <span className={`flex shrink-0 items-center gap-0.5 text-[10px] tabular-nums ${selectedFile === node.path ? "text-white/70" : "text-comprendo-accent"}`}>
                 <Zap className="h-2.5 w-2.5" />
                 {node.flowIds.length}
               </span>
@@ -218,8 +262,16 @@ function CategoryGroup({
 export function FileTreeSidebar({
   tree,
   selectedFile,
+  selectedCategory,
   onSelectFile,
+  onSelectCategory,
 }: FileTreeSidebarProps) {
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
+
+  const handleToggleOpen = (key: string) => {
+    setOpenCategory((prev) => (prev === key ? null : key));
+  };
+
   return (
     <aside className="flex w-[280px] shrink-0 flex-col overflow-hidden border-r border-comprendo-border bg-comprendo-surface">
       <div className="flex items-center justify-between border-b border-comprendo-border px-5 py-4">
@@ -247,8 +299,12 @@ export function FileTreeSidebar({
                 key={cat.key}
                 cat={cat}
                 files={files}
+                open={openCategory === cat.key}
                 selectedFile={selectedFile}
+                selectedCategory={selectedCategory}
                 onSelectFile={onSelectFile}
+                onSelectCategory={onSelectCategory}
+                onToggleOpen={handleToggleOpen}
               />
             ));
           })()

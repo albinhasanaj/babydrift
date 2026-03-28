@@ -32,10 +32,12 @@ export default function ExplorePage() {
     triggerScan,
     fetchFileTree,
     fetchFileCanvas,
+    fetchMultiFileCanvas,
   } = useExploreData();
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { laidNodes } = useExploreDerived(fileCanvas, expanded);
 
@@ -58,11 +60,26 @@ export default function ExplorePage() {
   const handleSelectFile = useCallback(
     (filePath: string) => {
       if (!traceId) return;
+      if (selectedFile === filePath) return;
       setExpanded(new Set());
       setSelectedNodeId(null);
+      setSelectedCategory(null);
       fetchFileCanvas(traceId, filePath);
     },
-    [traceId, fetchFileCanvas]
+    [traceId, selectedFile, fetchFileCanvas]
+  );
+
+  // 3b. When a category header is clicked, fetch all files in it merged
+  const handleSelectCategory = useCallback(
+    (categoryKey: string, filePaths: string[]) => {
+      if (!traceId || filePaths.length === 0) return;
+      if (selectedCategory === categoryKey) return;
+      setExpanded(new Set());
+      setSelectedNodeId(null);
+      setSelectedCategory(categoryKey);
+      fetchMultiFileCanvas(traceId, filePaths);
+    },
+    [traceId, selectedCategory, fetchMultiFileCanvas]
   );
 
   // 4. Auto-expand root nodes when canvas data arrives
@@ -133,7 +150,9 @@ export default function ExplorePage() {
         <FileTreeSidebar
           tree={fileTree}
           selectedFile={selectedFile}
+          selectedCategory={selectedCategory}
           onSelectFile={handleSelectFile}
+          onSelectCategory={handleSelectCategory}
         />
 
         <main className="relative flex-1">

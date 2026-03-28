@@ -180,6 +180,40 @@ export function useExploreData() {
     }
   }, []);
 
+  const fetchMultiFileCanvas = useCallback(
+    async (traceId: string, filePaths: string[], depth = 10) => {
+      setData((d) => ({
+        ...d,
+        loading: true,
+        error: null,
+        selectedFile: null,
+        fileCanvas: null,
+      }));
+      try {
+        const results = await Promise.all(
+          filePaths.map((p) =>
+            fetch(
+              `/api/explore/${traceId}/file_canvas?file_path=${encodeURIComponent(p)}&depth=${depth}`
+            ).then((r) => (r.ok ? (r.json() as Promise<FileCanvasResponse>) : null))
+          )
+        );
+        const merged: FileCanvasResponse = {
+          traceId,
+          filePath: "__category__",
+          flows: results.flatMap((r) => r?.flows ?? []),
+        };
+        setData((d) => ({ ...d, fileCanvas: merged, loading: false }));
+      } catch (err) {
+        setData((d) => ({
+          ...d,
+          loading: false,
+          error: err instanceof Error ? err.message : "Failed to fetch files",
+        }));
+      }
+    },
+    []
+  );
+
   const fetchFlowTree = useCallback(
     async (traceId: string, flowId: string, depth = 10) => {
       setData((d) => ({
@@ -214,6 +248,7 @@ export function useExploreData() {
     triggerScan,
     fetchFileTree,
     fetchFileCanvas,
+    fetchMultiFileCanvas,
     fetchEntryPoints,
     fetchFlowTree,
   };
