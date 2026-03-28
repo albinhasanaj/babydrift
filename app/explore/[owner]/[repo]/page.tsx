@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { FileTreeSidebar } from "@/components/FileTreeSidebar";
@@ -9,7 +9,7 @@ import { DetailPanel } from "@/components/DetailPanel";
 import { NodeExplainPanel } from "@/components/NodeExplainPanel";
 import { useExploreData } from "@/hooks/useExploreData";
 import { useExploreDerived } from "@/hooks/useExploreDerived";
-import type { LaidNode } from "@/lib/explorer/types";
+import type { LaidNode, FlowTreeNode } from "@/lib/explorer/types";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -40,6 +40,8 @@ export default function ExplorePage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // Pending node to highlight after a file load triggered by the chat
+  const pendingHighlightRef = useRef<string | null>(null);
 
   const { laidNodes } = useExploreDerived(fileCanvas, expanded);
 
@@ -85,9 +87,23 @@ export default function ExplorePage() {
     [traceId, selectedCategory, fetchMultiFileCanvas]
   );
 
-  // 4. Auto-expand root nodes when canvas data arrives
+  // 4. Auto-expand root nodes; if a chat highlight is pending, expand all and select it
   useEffect(() => {
-    if (fileCanvas?.flows) {
+    if (!fileCanvas?.flows) return;
+
+    if (pendingHighlightRef.current) {
+      const pending = pendingHighlightRef.current;
+      pendingHighlightRef.current = null;
+      // Expand every node in the newly loaded file so the target is visible
+      const allIds = new Set<string>();
+      const collectAll = (node: FlowTreeNode) => {
+        allIds.add(node.id);
+        node.children.forEach(collectAll);
+      };
+      fileCanvas.flows.forEach((f) => f.tree.forEach(collectAll));
+      setExpanded(allIds);
+      setSelectedNodeId(pending);
+    } else {
       const rootIds = new Set(
         fileCanvas.flows.flatMap((f) => f.tree.map((n) => n.id))
       );
@@ -95,7 +111,20 @@ export default function ExplorePage() {
     }
   }, [fileCanvas]);
 
-  // 5. Node click — toggle expand + select
+  // 5. Handler for Navbar chat: navigate to the node's file and highlight it
+  const handleHighlightNode = useCallback(
+    (nodeId: string, filePath: string) => {
+      if (!traceId) return;
+      pendingHighlightRef.current = nodeId;
+      setExpanded(new Set());
+      setSelectedNodeId(null);
+      setSelectedCategory(null);
+      fetchFileCanvas(traceId, filePath);
+    },
+    [traceId, fetchFileCanvas]
+  );
+
+  // 6. Node click — toggle expand + select
   const handleNodeClick = useCallback(
     (nodeId: string) => {
       const node = laidNodes.find((n) => n.id === nodeId);
@@ -135,7 +164,7 @@ export default function ExplorePage() {
 
   return (
     <div className="flex h-screen flex-col bg-comprendo-bg">
-      <Navbar showBack breadcrumb={fullName}>
+      <Navbar showBack breadcrumb={fullName} traceId={traceId ?? undefined} onHighlightNode={handleHighlightNode}>
         {traceId && !scanning && (
           <Button
             onClick={handleScan}
