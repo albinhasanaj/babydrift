@@ -28,7 +28,7 @@ export function FlowCanvas({ nodes, selectedNodeId, onNodeClick }: FlowCanvasPro
         <CanvasEdges nodes={nodes} />
         {nodes.map((node) => (
           <CanvasNode
-            key={node.id}
+            key={node.layoutId}
             node={node}
             selected={node.id === selectedNodeId}
             onClick={() => onNodeClick(node.id)}

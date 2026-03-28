@@ -144,6 +144,8 @@ export interface LaidNode extends FlowTreeNode {
   w: number;
   expanded: boolean;
   parentId: string | null;
+  /** Unique key for React — scoped to the flow so shared nodes don't collide */
+  layoutId: string;
   /** Marks the first node of each flow group so the canvas can draw a label */
   flowGroupLabel?: string;
 }

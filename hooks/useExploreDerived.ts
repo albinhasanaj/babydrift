@@ -32,6 +32,7 @@ function layoutSubtree(
   expanded: Set<string>,
   parentId: string | null,
   out: LaidNode[],
+  flowId: string,
   flowGroupLabel?: string
 ): number {
   const w = nodeWidth(node.label);
@@ -45,13 +46,14 @@ function layoutSubtree(
     w,
     expanded: expanded.has(node.id),
     parentId,
+    layoutId: `${flowId}::${node.id}`,
     flowGroupLabel,
   });
 
   if (expanded.has(node.id) && node.children.length > 0) {
     let childY = y;
     for (const child of node.children) {
-      layoutSubtree(child, x + w + H_GAP, childY, expanded, node.id, out);
+      layoutSubtree(child, x + w + H_GAP, childY, expanded, node.id, out, flowId);
       childY += getSubtreeHeight(child, expanded) + V_GAP;
     }
   }
@@ -63,7 +65,8 @@ export function layoutNodes(
   tree: FlowTreeNode[],
   expanded: Set<string>,
   startY = 0,
-  flowGroupLabel?: string
+  flowGroupLabel?: string,
+  flowId = ""
 ): { nodes: LaidNode[]; totalHeight: number } {
   const out: LaidNode[] = [];
   let y = startY;
@@ -76,6 +79,7 @@ export function layoutNodes(
       expanded,
       null,
       out,
+      flowId,
       isFirst ? flowGroupLabel : undefined
     );
     y += h + V_GAP;
@@ -95,7 +99,8 @@ export function layoutFlowGroups(
       flow.tree,
       expanded,
       y,
-      flow.label
+      flow.label,
+      flow.flowId
     );
     all.push(...nodes);
     y += totalHeight + FLOW_GROUP_GAP;
