@@ -380,6 +380,12 @@ export function FileTreeSidebar({
     setOpenCategory((prev) => (prev === key ? null : key));
   };
 
+  const [owner] = fullName.split("/");
+
+  const collapsedCategories = tree
+    ? groupByCategory(flattenEntryFiles(tree))
+    : [];
+
   return (
     <motion.aside
       key="sidebar"
@@ -396,8 +402,9 @@ export function FileTreeSidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="flex flex-col items-center py-3"
+            className="flex flex-col items-center gap-1 py-3"
           >
+            {/* Expand button */}
             <button
               onClick={() => setCollapsed(false)}
               className="flex h-8 w-8 items-center justify-center rounded-md text-comprendo-faint transition-colors hover:bg-comprendo-elevated hover:text-comprendo-text"
@@ -405,6 +412,47 @@ export function FileTreeSidebar({
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
+
+            {/* Repo avatar */}
+            <button
+              onClick={() => setCollapsed(false)}
+              title={fullName}
+              className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-comprendo-primary text-xs font-bold text-white"
+            >
+              {(owner?.[0] ?? "?").toUpperCase()}
+            </button>
+
+            {/* Divider */}
+            <div className="my-1 h-px w-6 bg-comprendo-border" />
+
+            {/* Category icon buttons */}
+            {collapsedCategories.map(({ cat }) => {
+              const { Icon } = cat;
+              const isActive = selectedCategory === cat.key;
+              return (
+                <button
+                  key={cat.key}
+                  title={cat.label}
+                  onClick={() => {
+                    setCollapsed(false);
+                    onSelectCategory(
+                      cat.key,
+                      collapsedCategories
+                        .find((c) => c.cat.key === cat.key)
+                        ?.files.map((f) => f.path) ?? [],
+                    );
+                    setOpenCategory(cat.key);
+                  }}
+                  className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                    isActive
+                      ? "bg-comprendo-primary text-white"
+                      : "text-comprendo-faint hover:bg-comprendo-elevated hover:text-comprendo-text"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              );
+            })}
           </motion.div>
         ) : (
           <motion.div
