@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, LogOut, LogIn, X, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, LogOut, LogIn, X, Send, Loader2, Link2, Copy, Check, Mail } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, FormEvent } from "react";
 
 interface NodeRef {
@@ -40,9 +40,12 @@ export function Navbar({ showBack, breadcrumb, children, traceId, onHighlightNod
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatSending, setChatSending] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const shareRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -80,6 +83,26 @@ export function Navbar({ showBack, breadcrumb, children, traceId, onHighlightNod
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [userMenuOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
+        setShareOpen(false);
+      }
+    }
+    if (shareOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [shareOpen]);
+
+  const handleCopy = useCallback(() => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
 
   const handleChatSubmit = useCallback(
     async (e: FormEvent) => {
@@ -198,7 +221,7 @@ export function Navbar({ showBack, breadcrumb, children, traceId, onHighlightNod
 
         <div className="flex items-center gap-3">
           {/* ComprendoMan chat button */}
-          <div className="relative" ref={popupRef}>
+          {traceId && <div className="relative" ref={popupRef}>
             <button
               onClick={() => setChatOpen((v) => !v)}
               className="flex items-center justify-center rounded-md p-1 transition-opacity hover:opacity-80"
@@ -313,7 +336,75 @@ export function Navbar({ showBack, breadcrumb, children, traceId, onHighlightNod
                 <style>{`@keyframes blink { 50% { opacity: 0; } }`}</style>
               </div>
             )}
-          </div>
+          </div>}
+
+          {/* Share button */}
+          {traceId && <div className="relative" ref={shareRef}>
+            <button
+              onClick={() => setShareOpen((v) => !v)}
+              className="flex items-center justify-center rounded-md p-1.5 text-comprendo-muted transition-colors hover:text-comprendo-text"
+              aria-label="Share this page"
+            >
+              <Link2 className="h-4 w-4" />
+            </button>
+
+            {shareOpen && (
+              <div className="absolute right-0 top-10 z-50 w-80 rounded-xl border border-comprendo-border bg-comprendo-surface shadow-2xl">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-comprendo-border px-4 py-3">
+                  <span className="text-sm font-semibold text-comprendo-text">Share</span>
+                  <button
+                    onClick={() => setShareOpen(false)}
+                    className="text-comprendo-muted transition-colors hover:text-comprendo-text"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* URL row */}
+                <div className="px-4 py-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-2 rounded-lg border border-comprendo-border bg-comprendo-elevated px-3 py-2">
+                    <Link2 className="h-3.5 w-3.5 shrink-0 text-comprendo-muted" />
+                    <span className="flex-1 truncate text-xs text-comprendo-muted select-all">
+                      {typeof window !== "undefined" ? window.location.href : ""}
+                    </span>
+                    <button
+                      onClick={handleCopy}
+                      className="shrink-0 flex items-center gap-1.5 rounded-md bg-comprendo-accent px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-80"
+                    >
+                      {copied ? (
+                        <><Check className="h-3 w-3" /> Copied</>
+                      ) : (
+                        <><Copy className="h-3 w-3" /> Copy</>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Share via */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={`mailto:?subject=Check%20this%20out&body=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
+                      className="flex items-center justify-center gap-2 rounded-lg border border-comprendo-border bg-comprendo-elevated px-3 py-2 text-xs text-comprendo-muted transition-colors hover:border-comprendo-accent hover:text-comprendo-text"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Email
+                    </a>
+                    <a
+                      href={`https://twitter.com/intent/tweet?url=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 rounded-lg border border-comprendo-border bg-comprendo-elevated px-3 py-2 text-xs text-comprendo-muted transition-colors hover:border-comprendo-accent hover:text-comprendo-text"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                      </svg>
+                      Twitter
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>}
 
           {children}
           {status === "loading" ? (
