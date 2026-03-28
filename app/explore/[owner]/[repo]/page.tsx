@@ -1,0 +1,204 @@
+"use client";
+
+import { useState, useCallback, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { Navbar } from "@/components/Navbar";
+import { FileTreeSidebar } from "@/components/FileTreeSidebar";
+import { FlowCanvas } from "@/components/FlowCanvas";
+import { DetailPanel } from "@/components/DetailPanel";
+import { useExploreData } from "@/hooks/useExploreData";
+import { useExploreDerived } from "@/hooks/useExploreDerived";
+import type { LaidNode } from "@/lib/explorer/types";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export default function ExplorePage() {
+  const params = useParams();
+  const owner = params.owner as string;
+  const repo = params.repo as string;
+  const fullName = `${owner}/${repo}`;
+
+  const {
+    currentRepoId,
+    traceId,
+    fileTree,
+    fileCanvas,
+    selectedFile,
+    loading,
+    scanning,
+    error,
+    connectRepo,
+    triggerScan,
+    fetchFileTree,
+    fetchFileCanvas,
+  } = useExploreData();
+
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const { laidNodes } = useExploreDerived(fileCanvas, expanded);
+
+  const selectedNode: LaidNode | null =
+    laidNodes.find((n) => n.id === selectedNodeId) ?? null;
+
+  // 1. Connect repo on mount
+  useEffect(() => {
+    connectRepo(fullName);
+  }, [fullName, connectRepo]);
+
+  // 2. Once we have a traceId, fetch the file tree
+  useEffect(() => {
+    if (traceId) {
+      fetchFileTree(traceId);
+    }
+  }, [traceId, fetchFileTree]);
+
+  // 3. When a file is selected, fetch canvas flows + reset state
+  const handleSelectFile = useCallback(
+    (filePath: string) => {
+      if (!traceId) return;
+      setExpanded(new Set());
+      setSelectedNodeId(null);
+      fetchFileCanvas(traceId, filePath);
+    },
+    [traceId, fetchFileCanvas]
+  );
+
+  // 4. Auto-expand root nodes when canvas data arrives
+  useEffect(() => {
+    if (fileCanvas?.flows) {
+      const rootIds = new Set(
+        fileCanvas.flows.flatMap((f) => f.tree.map((n) => n.id))
+      );
+      setExpanded(rootIds);
+    }
+  }, [fileCanvas]);
+
+  // 5. Node click — toggle expand + select
+  const handleNodeClick = useCallback(
+    (nodeId: string) => {
+      const node = laidNodes.find((n) => n.id === nodeId);
+      if (!node) return;
+
+      setSelectedNodeId((prev) => (prev === nodeId ? null : nodeId));
+
+      if (node.children.length > 0 || node.canExpand) {
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          if (next.has(nodeId)) {
+            next.delete(nodeId);
+            const collapse = (n: LaidNode) => {
+              for (const child of laidNodes.filter((c) => c.parentId === n.id)) {
+                next.delete(child.id);
+                collapse(child);
+              }
+            };
+            collapse(node);
+          } else {
+            next.add(nodeId);
+          }
+          return next;
+        });
+      }
+    },
+    [laidNodes]
+  );
+
+  const handleScan = useCallback(async () => {
+    if (!currentRepoId) return;
+    const result = await triggerScan(currentRepoId);
+    if (result?.traceId) {
+      fetchFileTree(result.traceId);
+    }
+  }, [currentRepoId, triggerScan, fetchFileTree]);
+
+  return (
+    <div className="flex h-screen flex-col bg-comprendo-bg">
+      <Navbar showBack breadcrumb={fullName} />
+
+      <div className="flex flex-1 overflow-hidden">
+        <FileTreeSidebar
+          tree={fileTree}
+          selectedFile={selectedFile}
+          onSelectFile={handleSelectFile}
+        />
+
+        <main className="relative flex-1">
+          {/* Loading overlay */}
+          {(loading || scanning) && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-comprendo-bg/80">
+              <Loader2 className="h-8 w-8 animate-spin text-comprendo-accent" />
+              <span className="mt-3 text-sm text-comprendo-muted">
+                {scanning ? "Scanning repository..." : "Loading..."}
+              </span>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && !loading && !scanning && (
+            <div className="absolute left-4 top-4 z-30 rounded-lg border border-comprendo-drift/30 bg-comprendo-drift/10 px-4 py-2 text-xs text-comprendo-drift">
+              {error}
+            </div>
+          )}
+
+          {/* No trace – prompt scan */}
+          {!traceId && !loading && !scanning && currentRepoId && (
+            <div className="flex h-full flex-col items-center justify-center gap-4">
+              <p className="text-sm text-comprendo-muted">
+                No scan found for this repository.
+              </p>
+              <Button
+                onClick={handleScan}
+                className="bg-comprendo-primary text-white hover:bg-comprendo-primary-hover"
+              >
+                Run Scan
+              </Button>
+            </div>
+          )}
+
+          {/* No file selected */}
+          {traceId && !fileCanvas && !loading && (
+            <div className="flex h-full flex-col items-center justify-center gap-2">
+              <p className="text-sm text-comprendo-faint">
+                Select a file from the sidebar
+              </p>
+              <p className="text-xs text-comprendo-faint">
+                Files with a{" "}
+                <span className="text-comprendo-accent">⚡</span> badge have
+                entry points
+              </p>
+            </div>
+          )}
+
+          {/* File selected but no flows */}
+          {fileCanvas && fileCanvas.flows.length === 0 && !loading && (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-comprendo-faint">
+                No entry points in{" "}
+                <span className="text-comprendo-muted">
+                  {selectedFile?.split("/").pop()}
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* Canvas */}
+          {fileCanvas && laidNodes.length > 0 && (
+            <>
+              <FlowCanvas
+                nodes={laidNodes}
+                selectedNodeId={selectedNodeId}
+                onNodeClick={handleNodeClick}
+              />
+              <DetailPanel
+                node={selectedNode}
+                onClose={() => setSelectedNodeId(null)}
+              />
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+

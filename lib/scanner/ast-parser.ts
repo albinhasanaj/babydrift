@@ -123,8 +123,11 @@ export function parseFile(
     };
   }
 
+  // Bind to local const for closure narrowing
+  const sf = sourceFile;
+
   // Ensure parent pointers are set (TS 6 compatibility)
-  bindParents(sourceFile);
+  bindParents(sf);
 
   const relativePath = getRelativePath(filePath, repoRoot);
   const nodes: ScannedNode[] = [];
@@ -146,7 +149,7 @@ export function parseFile(
     }
     ts.forEachChild(node, collectCalls);
   }
-  collectCalls(sourceFile);
+  collectCalls(sf);
 
   // Second pass: extract all info
   function visit(node: ts.Node) {
@@ -203,7 +206,7 @@ export function parseFile(
         label: name,
         type,
         filePath: relativePath,
-        line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1,
+        line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
         isClientComponent: classification.isClientComponent,
         isAsync: asyncFn,
         isExported: exported,
@@ -252,7 +255,7 @@ export function parseFile(
               type,
               filePath: relativePath,
               line:
-                sourceFile.getLineAndCharacterOfPosition(decl.getStart(sourceFile)).line +
+                sf.getLineAndCharacterOfPosition(decl.getStart(sf)).line +
                 1,
               isClientComponent: classification.isClientComponent,
               isAsync: asyncFn,
@@ -297,7 +300,7 @@ export function parseFile(
     ts.forEachChild(node, visit);
   }
 
-  visit(sourceFile);
+  visit(sf);
 
   return {
     filePath: relativePath,
