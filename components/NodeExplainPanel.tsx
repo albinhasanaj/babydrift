@@ -113,17 +113,16 @@ export function NodeExplainPanel({
     <div
       style={{
         position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
+        bottom: 8,
+        left: 288,
+        right: 8,
         zIndex: 50,
         transform: isVisible ? "translateY(0)" : "translateY(100%)",
         transition: "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
         maxHeight: "40vh",
-        background: "#1a1008",
-        borderTop: "1px solid #3d2010",
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
+        background: "#424242",
+        borderTop: "1px solid #555",
+        borderRadius: 16,
         padding: 24,
         overflow: "auto",
       }}
@@ -134,7 +133,7 @@ export function NodeExplainPanel({
           width: 32,
           height: 4,
           borderRadius: 2,
-          background: "#3d2010",
+          background: "#555",
           margin: "0 auto 16px",
         }}
       />

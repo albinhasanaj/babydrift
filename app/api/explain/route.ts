@@ -138,11 +138,22 @@ Keep it under 100 words.`;
     return new Response(readableStream, {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Gemini error:", err);
+
+    const status =
+      err instanceof Error && "status" in err && (err as { status: number }).status === 429
+        ? 429
+        : 500;
+
+    const message =
+      status === 429
+        ? "Gemini API rate limit exceeded. Please wait a minute or check your plan at https://ai.google.dev."
+        : "Failed to generate explanation";
+
     return new Response(
-      JSON.stringify({ error: "Failed to generate explanation" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: message }),
+      { status, headers: { "Content-Type": "application/json" } }
     );
   }
 }
