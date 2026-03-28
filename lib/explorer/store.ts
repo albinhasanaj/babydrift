@@ -8,10 +8,15 @@ import type {
   RepoRecord,
 } from "./types";
 
-// ── In-memory store ─────────────────────────────────────────────────
+// ── In-memory store (survives HMR in dev) ───────────────────────────
 
-const repos = new Map<string, RepoRecord>();
-const traces = new Map<string, TraceRecord>();
+const globalForStore = globalThis as unknown as {
+  __explorerRepos?: Map<string, RepoRecord>;
+  __explorerTraces?: Map<string, TraceRecord>;
+};
+
+const repos = (globalForStore.__explorerRepos ??= new Map<string, RepoRecord>());
+const traces = (globalForStore.__explorerTraces ??= new Map<string, TraceRecord>());
 
 export function getRepo(id: string): RepoRecord | undefined {
   return repos.get(id);

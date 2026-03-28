@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { FileClassification, NodeType } from "./types";
+import type { FrameworkPack } from "./framework-pack";
 
 const SKIP_DIRS = ["node_modules", ".next", "dist", ".git"];
 const SKIP_EXTENSIONS = [".d.ts"];
@@ -15,10 +16,10 @@ const CONFIG_NAMES = [
   "components.json",
 ];
 
-function shouldSkip(filePath: string): boolean {
+function shouldSkip(filePath: string, extraSkipDirs: string[] = []): boolean {
   const normalized = filePath.replace(/\\/g, "/");
 
-  for (const dir of SKIP_DIRS) {
+  for (const dir of [...SKIP_DIRS, ...extraSkipDirs]) {
     if (normalized.includes(`/${dir}/`) || normalized.startsWith(`${dir}/`)) {
       return true;
     }
@@ -97,12 +98,18 @@ function classifyByPath(relativePath: string, fileName: string): NodeType {
   return "UTILITY";
 }
 
-export function classifyFile(filePath: string, repoRoot: string): FileClassification {
+export function classifyFile(
+  filePath: string,
+  repoRoot: string,
+  packs: FrameworkPack[] = []
+): FileClassification {
   const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(repoRoot, filePath);
   const relativePath = path.relative(repoRoot, absolutePath).replace(/\\/g, "/");
   const fileName = path.basename(relativePath);
 
-  if (shouldSkip(relativePath)) {
+  const extraSkipDirs = packs.flatMap((p) => p.skipDirs?.() ?? []);
+
+  if (shouldSkip(relativePath, extraSkipDirs)) {
     return {
       filePath: relativePath,
       primaryType: "UTILITY",
@@ -113,7 +120,18 @@ export function classifyFile(filePath: string, repoRoot: string): FileClassifica
   }
 
   const isClient = detectClientDirective(absolutePath);
-  const primaryType = classifyByPath(relativePath, fileName);
+
+  // Let framework packs refine classification first
+  let primaryType: NodeType | null = null;
+  for (const pack of packs) {
+    if (pack.classifyFile) {
+      primaryType = pack.classifyFile(relativePath, fileName);
+      if (primaryType !== null) break;
+    }
+  }
+  if (primaryType === null) {
+    primaryType = classifyByPath(relativePath, fileName);
+  }
 
   return {
     filePath: relativePath,

@@ -21,6 +21,13 @@ interface NodeExplainPanelProps {
   onClose: () => void;
 }
 
+// Cache explanations so re-opening a node doesn't re-fetch
+const explanationCache = new Map<string, string>();
+
+function cacheKey(owner: string, repo: string, node: ExplainNodeData): string {
+  return `${owner}/${repo}/${node.filePath}:${node.line ?? 1}:${node.label}`;
+}
+
 const typeBadgeStyles: Record<string, string> = {
   PAGE: "background-color: #7c3aed",
   LAYOUT: "background-color: #6d28d9",
@@ -52,6 +59,16 @@ export function NodeExplainPanel({
       return;
     }
 
+    // Return cached explanation if available
+    const key = cacheKey(owner, repo, node);
+    const cached = explanationCache.get(key);
+    if (cached) {
+      setExplanation(cached);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+
     // Abort any in-flight request
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -62,6 +79,7 @@ export function NodeExplainPanel({
     setLoading(true);
 
     (async () => {
+      let full = "";
       try {
         const response = await fetch("/api/explain", {
           method: "POST",
@@ -90,9 +108,12 @@ export function NodeExplainPanel({
           const { done, value } = await reader.read();
           if (done) break;
           const text = decoder.decode(value);
+          full += text;
           setExplanation((prev) => prev + text);
         }
 
+        // Cache the completed explanation
+        explanationCache.set(key, full);
         setLoading(false);
       } catch (err) {
         if ((err as Error).name !== "AbortError") {

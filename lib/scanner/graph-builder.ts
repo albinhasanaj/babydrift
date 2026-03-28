@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { ParsedFile, ScanResult, ScannedEdge, ScannedNode, NodeType } from "./types";
+import type { FrameworkPack } from "./framework-pack";
 
 const NODE_WIDTH = 200;
 const LAYER_HEIGHT = 180;
@@ -67,7 +68,8 @@ function resolveImportPath(
 
 export function buildGraph(
   parsedFiles: ParsedFile[],
-  repoRoot: string
+  repoRoot: string,
+  packs: FrameworkPack[] = []
 ): ScanResult {
   const nodeMap = new Map<string, ScannedNode>();
   const edges: ScannedEdge[] = [];
@@ -242,7 +244,23 @@ export function buildGraph(
     layerCounts.set(layer, count + 1);
   }
 
-  // 8. Compute stats
+  // 8. Apply framework pack extra edges
+  for (const pack of packs) {
+    if (pack.extraEdges) {
+      const extra = pack.extraEdges(
+        Array.from(nodeMap.values()),
+        validEdges,
+        repoRoot
+      );
+      for (const e of extra) {
+        if (nodeMap.has(e.source) && nodeMap.has(e.target)) {
+          validEdges.push(e);
+        }
+      }
+    }
+  }
+
+  // 9. Compute stats
   const allNodes = Array.from(nodeMap.values());
   const stats = {
     filesAnalyzed: parsedFiles.length,
