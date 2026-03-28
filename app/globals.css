@@ -133,6 +133,11 @@
   background-size: 24px 24px;
 }
 
+/* Hero gradient background matching Comprendo landing */
+.bg-hero-gradient {
+  background: linear-gradient(180deg, #c62a00 0%, #e84a00 20%, #f07000 40%, #f89000 60%, #ffa830 80%, #ffc060 100%);
+}
+
 /* React Flow customizations */
 .react-flow__minimap {
   background-color: #424242 !important;
