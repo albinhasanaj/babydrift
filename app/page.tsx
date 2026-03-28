@@ -112,23 +112,21 @@ export default function Home() {
         <h1 className="text-6xl md:text-8xl lg:text-9xl font-heading font-extrabold tracking-tight leading-[1.05] mb-8">
           Comprendo?
         </h1>
-        <p className="text-base md:text-lg font-mono text-white/80 mb-1">
-          Transform any GitHub repo into interactive visual maps.
+        <p className="text-base md:text-lg font-mono text-white/80 mb-10">
+          See the code. Understand everything.
         </p>
-        <p className="text-base md:text-lg font-mono text-white/70 mb-10">
-          Understand architecture, dependencies, and flow — instantly.
-        </p>
-        <div className="flex items-center gap-6">
+      
+        <div className="flex items-center gap-4">
           <button
             onClick={() => signIn("github", { callbackUrl: "/repos" })}
-            className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-primary text-primary-foreground text-base font-heading font-bold hover:bg-primary/90 transition-all hover:gap-3"
+            className="group flex items-center gap-2 px-8 py-3.5 rounded-full bg-primary text-primary-foreground text-base font-heading font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 transition-all duration-200 hover:gap-3"
           >
             Get started free
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
           </button>
           <a
             href="#features"
-            className="text-sm font-mono text-white/70 hover:text-white transition-colors"
+            className="px-6 py-3.5 rounded-full border border-white/20 text-sm font-mono text-white/70 hover:text-white hover:border-white/40 transition-all duration-200"
           >
             See how it works ↓
           </a>
