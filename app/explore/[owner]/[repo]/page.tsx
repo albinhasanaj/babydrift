@@ -10,10 +10,9 @@ import { NodeExplainPanel } from "@/components/NodeExplainPanel";
 import { useExploreData } from "@/hooks/useExploreData";
 import { useExploreDerived } from "@/hooks/useExploreDerived";
 import { RepoSummaryBanner } from "@/components/RepoSummaryBanner";
-import type { LaidNode } from "@/lib/explorer/types";
+import type { LaidNode, FlowTreeNode } from "@/lib/explorer/types";
 import { Loader2, RefreshCw, Play, Square, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { FileTreeNode } from "@/lib/explorer/types";
 
 export default function ExplorePage() {
   const params = useParams();
@@ -51,45 +50,34 @@ export default function ExplorePage() {
   });
   const [pulseNodeIds, setPulseNodeIds] = useState<Set<string>>(new Set());
 
-  // Tour state
+  // Tour state (scoped to current file only)
   const [tourActive, setTourActive] = useState(false);
-  const [tourFileIndex, setTourFileIndex] = useState(0);
   const [tourNodeIndex, setTourNodeIndex] = useState(0);
   const [tourComplete, setTourComplete] = useState(false);
-  // Track how many nodes in the current file we've revealed
-  const [tourRevealedNodes, setTourRevealedNodes] = useState<string[]>([]);
+
+  // Flatten the raw tree (depth-first) so the tour has a stable ordered list
+  // of ALL nodes, not just the currently expanded/visible ones.
+  const allTreeNodes = useMemo(() => {
+    if (!fileCanvas?.flows) return [];
+    const result: { id: string; parentIds: string[] }[] = [];
+    const walk = (node: FlowTreeNode, ancestors: string[]) => {
+      result.push({ id: node.id, parentIds: ancestors });
+      for (const child of node.children) {
+        walk(child, [...ancestors, node.id]);
+      }
+    };
+    for (const flow of fileCanvas.flows) {
+      for (const root of flow.tree) {
+        walk(root, []);
+      }
+    }
+    return result;
+  }, [fileCanvas]);
 
   const { laidNodes } = useExploreDerived(fileCanvas, expanded);
 
   const selectedNode: LaidNode | null =
     laidNodes.find((n) => n.id === selectedNodeId) ?? null;
-
-  // Build ordered tour file list: Pages first, then Components, then everything else
-  const tourFiles = useMemo(() => {
-    if (!fileTree) return [];
-    const all: FileTreeNode[] = [];
-    const collect = (node: FileTreeNode) => {
-      if (!node.isDir && node.flowIds.length > 0) all.push(node);
-      for (const child of node.children) collect(child);
-    };
-    collect(fileTree);
-
-    const isPage = (f: FileTreeNode) =>
-      f.name === "page.tsx" || f.name === "page.ts" || f.name === "page.jsx";
-    const isComponent = (f: FileTreeNode) => {
-      const segs = f.path.replace(/\\/g, "/").split("/");
-      return (
-        segs.some((s) =>
-          ["components", "ui", "widgets", "shared", "common"].includes(s)
-        ) || /^[A-Z][a-zA-Z0-9]*\.(tsx|jsx)$/.test(f.name)
-      );
-    };
-
-    const pages = all.filter(isPage);
-    const components = all.filter((f) => !isPage(f) && isComponent(f));
-    const rest = all.filter((f) => !isPage(f) && !isComponent(f));
-    return [...pages, ...components, ...rest];
-  }, [fileTree]);
 
   // 1. Connect repo on mount and load repos list
   useEffect(() => {
@@ -193,149 +181,54 @@ export default function ExplorePage() {
     }
   }, [currentRepoId, triggerScan, fetchFileTree]);
 
-  // ── Tour controls ──
+  // ── Tour controls (scoped to current file) ──
   const startTour = useCallback(() => {
-    if (tourFiles.length === 0 || !traceId) return;
+    if (allTreeNodes.length === 0) return;
     setTourComplete(false);
     setTourActive(true);
-    setTourFileIndex(0);
     setTourNodeIndex(0);
-    setTourRevealedNodes([]);
-    // Load the first file
-    setExpanded(new Set());
-    setSelectedNodeId(null);
-    setSelectedCategory(null);
-    fetchFileCanvas(traceId, tourFiles[0].path);
-  }, [tourFiles, traceId, fetchFileCanvas]);
+    // Expand all ancestors of the first node + the node itself
+    const first = allTreeNodes[0];
+    setExpanded(new Set([...first.parentIds, first.id]));
+    setSelectedNodeId(first.id);
+  }, [allTreeNodes]);
 
   const stopTour = useCallback(() => {
     setTourActive(false);
-    setTourRevealedNodes([]);
   }, []);
 
-  // When tour file loads, seed the revealed nodes list with just the first root node
-  useEffect(() => {
-    if (!tourActive || laidNodes.length === 0) return;
-    // Only seed on fresh file load (when tourRevealedNodes is empty)
-    if (tourRevealedNodes.length > 0) return;
-    const firstNode = laidNodes[0];
-    if (firstNode) {
-      setTourRevealedNodes([firstNode.id]);
-      setTourNodeIndex(0);
-      setSelectedNodeId(firstNode.id);
-      // Expand the first node
-      setExpanded(new Set([firstNode.id]));
-    }
-  }, [tourActive, laidNodes, tourRevealedNodes.length]);
+  // Navigate to a specific tour index, expanding all ancestors so it's visible
+  const goToTourIndex = useCallback(
+    (idx: number) => {
+      if (idx < 0 || idx >= allTreeNodes.length) return;
+      const entry = allTreeNodes[idx];
+      setTourNodeIndex(idx);
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        for (const pid of entry.parentIds) next.add(pid);
+        next.add(entry.id);
+        return next;
+      });
+      setSelectedNodeId(entry.id);
+    },
+    [allTreeNodes]
+  );
 
-  // Tour: go to next node (deeper into tree, then next sibling, then next file)
   const tourNext = useCallback(() => {
     if (!tourActive) return;
-
-    const currentNodeId = tourRevealedNodes[tourNodeIndex];
-    const currentNode = laidNodes.find((n) => n.id === currentNodeId);
-
-    // Try to find the next node to reveal:
-    // 1. First unexpanded child of current node
-    // 2. Next sibling (next node at same or shallower depth)
-    // 3. Next file
-
-    // Find children of current node that aren't revealed yet
-    const unrevealedChild = currentNode
-      ? laidNodes.find(
-          (n) => n.parentId === currentNodeId && !tourRevealedNodes.includes(n.id)
-        )
-      : null;
-
-    if (unrevealedChild) {
-      // Expand current node and reveal the child
-      setExpanded((prev) => new Set([...prev, currentNodeId!]));
-      const newRevealed = [...tourRevealedNodes, unrevealedChild.id];
-      setTourRevealedNodes(newRevealed);
-      setTourNodeIndex(newRevealed.length - 1);
-      setSelectedNodeId(unrevealedChild.id);
-      return;
-    }
-
-    // Find next sibling or ancestor's sibling
-    // Walk up the tree to find the next unvisited node
-    const allRootIds = laidNodes.filter((n) => !n.parentId).map((n) => n.id);
-    
-    // Find any node that has unrevealed children
-    for (const revealedId of [...tourRevealedNodes].reverse()) {
-      const node = laidNodes.find((n) => n.id === revealedId);
-      if (!node) continue;
-      const unrevealedKid = laidNodes.find(
-        (n) => n.parentId === revealedId && !tourRevealedNodes.includes(n.id)
-      );
-      if (unrevealedKid) {
-        setExpanded((prev) => new Set([...prev, revealedId]));
-        const newRevealed = [...tourRevealedNodes, unrevealedKid.id];
-        setTourRevealedNodes(newRevealed);
-        setTourNodeIndex(newRevealed.length - 1);
-        setSelectedNodeId(unrevealedKid.id);
-        return;
-      }
-    }
-
-    // Find unrevealed root nodes
-    const unrevealedRoot = allRootIds.find(
-      (id) => !tourRevealedNodes.includes(id)
-    );
-    if (unrevealedRoot) {
-      const newRevealed = [...tourRevealedNodes, unrevealedRoot];
-      setTourRevealedNodes(newRevealed);
-      setTourNodeIndex(newRevealed.length - 1);
-      setSelectedNodeId(unrevealedRoot);
-      setExpanded((prev) => new Set([...prev, unrevealedRoot]));
-      return;
-    }
-
-    // All nodes in this file exhausted — move to next file
-    const nextFileIdx = tourFileIndex + 1;
-    if (nextFileIdx >= tourFiles.length) {
+    const nextIdx = tourNodeIndex + 1;
+    if (nextIdx >= allTreeNodes.length) {
       setTourActive(false);
       setTourComplete(true);
       return;
     }
+    goToTourIndex(nextIdx);
+  }, [tourActive, tourNodeIndex, allTreeNodes, goToTourIndex]);
 
-    setTourFileIndex(nextFileIdx);
-    setTourRevealedNodes([]);
-    setTourNodeIndex(0);
-    setExpanded(new Set());
-    setSelectedNodeId(null);
-    setSelectedCategory(null);
-    if (traceId) {
-      fetchFileCanvas(traceId, tourFiles[nextFileIdx].path);
-    }
-  }, [tourActive, tourNodeIndex, tourRevealedNodes, laidNodes, tourFileIndex, tourFiles, traceId, fetchFileCanvas]);
-
-  // Tour: go back to previous node
   const tourBack = useCallback(() => {
-    if (!tourActive || tourRevealedNodes.length <= 1) {
-      // Go to previous file
-      if (tourFileIndex > 0) {
-        const prevIdx = tourFileIndex - 1;
-        setTourFileIndex(prevIdx);
-        setTourRevealedNodes([]);
-        setTourNodeIndex(0);
-        setExpanded(new Set());
-        setSelectedNodeId(null);
-        setSelectedCategory(null);
-        if (traceId) {
-          fetchFileCanvas(traceId, tourFiles[prevIdx].path);
-        }
-      }
-      return;
-    }
-
-    // Go back one node within the current file
-    const newRevealed = tourRevealedNodes.slice(0, -1);
-    setTourRevealedNodes(newRevealed);
-    setTourNodeIndex(newRevealed.length - 1);
-    const prevNodeId = newRevealed[newRevealed.length - 1];
-    setSelectedNodeId(prevNodeId);
-  }, [tourActive, tourRevealedNodes, tourFileIndex, tourFiles, traceId, fetchFileCanvas]);
+    if (!tourActive || tourNodeIndex <= 0) return;
+    goToTourIndex(tourNodeIndex - 1);
+  }, [tourActive, tourNodeIndex, goToTourIndex]);
 
   return (
     <div className="flex h-screen flex-col bg-comprendo-bg">
@@ -345,7 +238,7 @@ export default function ExplorePage() {
             {tourActive && (
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-comprendo-muted">
-                  {tourFileIndex + 1} / {tourFiles.length} files
+                  {tourNodeIndex + 1} / {allTreeNodes.length} blocks
                 </span>
                 <Button
                   onClick={tourBack}
@@ -374,7 +267,7 @@ export default function ExplorePage() {
                 </Button>
               </div>
             )}
-            {!tourActive && tourFiles.length > 0 && (
+            {!tourActive && fileCanvas && allTreeNodes.length > 0 && (
               <Button
                 onClick={startTour}
                 variant="ghost"
@@ -398,7 +291,7 @@ export default function ExplorePage() {
         )}
       </Navbar>
 
-      <RepoSummaryBanner traceId={traceId} repoKey={fullName} />
+      <RepoSummaryBanner traceId={traceId} filePath={selectedFile} />
 
       <div className="flex flex-1 overflow-hidden">
         <FileTreeSidebar

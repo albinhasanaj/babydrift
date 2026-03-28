@@ -6,13 +6,13 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const REPOS_DIR =
   process.env.REPOS_DIR ?? path.join(process.cwd(), "data/repos");
 
-const SYSTEM_PROMPT = `You are a code comprehension assistant for Comprendo.
-You will be given the EXACT source code of a single function or component.
-Explain ONLY what this specific code does based on what you can read.
-Do not make assumptions about other parts of the codebase.
-Do not hallucinate functionality that is not visible in the code.
-If something is unclear from the code alone, say so honestly.
-Be direct. No fluff. Max 3 short paragraphs.
+const SYSTEM_PROMPT = `You explain code to people who don't know how to code.
+You will be given a piece of code. Explain what it does in simple everyday language.
+Imagine you're explaining to a friend who has never programmed.
+Use analogies and real-world comparisons when helpful.
+Never use words like: function, component, render, props, state, API, endpoint, hook, callback, parameter, argument, variable, object, array, module, import, export, async, promise, type, interface.
+Instead say things like: "this part", "this piece", "this block", "this section".
+Keep it to 2-3 short sentences max.
 Plain text only — no markdown, no bullet points, no headers.`;
 
 function extractCodeBlock(
@@ -100,15 +100,16 @@ export async function POST(request: NextRequest) {
   const fileContent = fs.readFileSync(resolvedFullPath, "utf-8");
   const codeSnippet = extractCodeBlock(fileContent, line ?? 1);
 
-  const userPrompt = `Here is the exact source code of a ${type} called '${label}':
+  const userPrompt = `Here is a piece of code called "${label}":
 
-\`\`\`typescript
+\`\`\`
 ${codeSnippet}
 \`\`\`
 
-Explain what this ${type.toLowerCase()} does based strictly on this code.
-What is its purpose? What does it take in and return or render?
-Keep it under 100 words.`;
+Explain what this does like you're talking to someone who has never coded.
+What does it actually do? What would a user see or experience because of it?
+Use simple everyday words. No technical jargon at all.
+Keep it to 2-3 short sentences.`;
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);

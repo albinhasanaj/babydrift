@@ -1,27 +1,32 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 
 interface RepoSummaryBannerProps {
   traceId: string | null;
-  repoKey: string; // "owner/repo" for localStorage key
+  filePath: string | null;
 }
 
-const STORAGE_PREFIX = "comprendo_summary_collapsed_";
-
-export function RepoSummaryBanner({ traceId, repoKey }: RepoSummaryBannerProps) {
+export function RepoSummaryBanner({ traceId, filePath }: RepoSummaryBannerProps) {
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(STORAGE_PREFIX + repoKey) === "true";
-  });
-  const [generated, setGenerated] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [generatedFor, setGeneratedFor] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Reset when file changes
+  useEffect(() => {
+    if (filePath !== generatedFor) {
+      setSummary("");
+      setLoading(false);
+      setCollapsed(false);
+      setGeneratedFor(null);
+    }
+  }, [filePath, generatedFor]);
+
   const generate = () => {
-    if (!traceId || loading || generated) return;
+    if (!traceId || !filePath || loading) return;
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -29,16 +34,15 @@ export function RepoSummaryBanner({ traceId, repoKey }: RepoSummaryBannerProps) 
 
     setLoading(true);
     setSummary("");
-    setGenerated(true);
+    setGeneratedFor(filePath);
     setCollapsed(false);
-    localStorage.removeItem(STORAGE_PREFIX + repoKey);
 
     (async () => {
       try {
         const response = await fetch("/api/explain/summary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ traceId }),
+          body: JSON.stringify({ traceId, filePath }),
           signal: controller.signal,
         });
 
@@ -64,20 +68,25 @@ export function RepoSummaryBanner({ traceId, repoKey }: RepoSummaryBannerProps) 
         }
       }
     })();
+
+    return () => {
+      controller.abort();
+    };
   };
 
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_PREFIX + repoKey, String(next));
-      return next;
-    });
-  };
+  if (!traceId || !filePath) return null;
 
-  if (!traceId) return null;
+  // Friendly display name for the file
+  const displayName = (() => {
+    const parts = filePath.replace(/\\/g, "/").split("/");
+    const name = parts[parts.length - 1];
+    const ambiguous = /^(page|layout|route)\.[tj]sx?$/.test(name);
+    if (ambiguous && parts.length >= 2) return parts[parts.length - 2] + "/" + name;
+    return name;
+  })();
 
-  // Before generation: show a small trigger button
-  if (!generated && !loading && !summary) {
+  // Before generation: show trigger
+  if (generatedFor !== filePath && !loading) {
     return (
       <div className="w-full border-b border-comprendo-border bg-comprendo-surface/80">
         <button
@@ -86,7 +95,7 @@ export function RepoSummaryBanner({ traceId, repoKey }: RepoSummaryBannerProps) 
         >
           <Sparkles className="h-4 w-4 shrink-0 text-comprendo-accent" />
           <span className="text-[11px] font-semibold uppercase tracking-widest text-comprendo-faint">
-            What does this app do?
+            What does {displayName} do?
           </span>
           <span className="ml-auto text-[11px] text-comprendo-accent">
             Click to find out
@@ -99,12 +108,12 @@ export function RepoSummaryBanner({ traceId, repoKey }: RepoSummaryBannerProps) 
   return (
     <div className="w-full border-b border-comprendo-border bg-comprendo-surface/80">
       <button
-        onClick={toggleCollapsed}
+        onClick={() => setCollapsed((prev) => !prev)}
         className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-comprendo-elevated/50"
       >
         <Sparkles className="h-4 w-4 shrink-0 text-comprendo-accent" />
         <span className="text-[11px] font-semibold uppercase tracking-widest text-comprendo-faint">
-          What this app does
+          What {displayName} does
         </span>
         <span className="ml-auto shrink-0 text-comprendo-faint">
           {collapsed ? (
