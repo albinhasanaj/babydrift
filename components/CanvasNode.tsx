@@ -11,9 +11,9 @@ interface CanvasNodeProps {
 }
 
 const typeColors: Record<string, { bg: string; border: string; text: string }> = {
-  function: { bg: "#1a1008", border: "#f97316", text: "#faf5f0" },
-  branch: { bg: "#2a1a0e", border: "#fbbf24", text: "#faf5f0" },
-  section: { bg: "#1a1008", border: "#a87860", text: "#a87860" },
+  function: { bg: "#FFF5E7", border: "#FFF5E7", text: "#242424" },
+  branch:   { bg: "#FFF5E7", border: "#FFF5E7", text: "#242424" },
+  section:  { bg: "#FFF5E7", border: "#FFF5E7", text: "#242424" },
 };
 
 export function CanvasNode({ node, selected, onClick }: CanvasNodeProps) {
@@ -30,7 +30,7 @@ export function CanvasNode({ node, selected, onClick }: CanvasNodeProps) {
             top: node.y - 26,
             fontSize: 11,
             fontWeight: 600,
-            color: "#a87860",
+            color: "#242424",
             letterSpacing: "0.04em",
             textTransform: "uppercase",
             whiteSpace: "nowrap",

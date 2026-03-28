@@ -25,6 +25,7 @@ export default function ExplorePage() {
     fileTree,
     fileCanvas,
     selectedFile,
+    repos,
     loading,
     scanning,
     error,
@@ -33,6 +34,7 @@ export default function ExplorePage() {
     fetchFileTree,
     fetchFileCanvas,
     fetchMultiFileCanvas,
+    fetchRepos,
   } = useExploreData();
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -44,10 +46,11 @@ export default function ExplorePage() {
   const selectedNode: LaidNode | null =
     laidNodes.find((n) => n.id === selectedNodeId) ?? null;
 
-  // 1. Connect repo on mount
+  // 1. Connect repo on mount and load repos list
   useEffect(() => {
     connectRepo(fullName);
-  }, [fullName, connectRepo]);
+    fetchRepos();
+  }, [fullName, connectRepo, fetchRepos]);
 
   // 2. Once we have a traceId, fetch the file tree
   useEffect(() => {
@@ -151,6 +154,8 @@ export default function ExplorePage() {
           tree={fileTree}
           selectedFile={selectedFile}
           selectedCategory={selectedCategory}
+          repos={repos}
+          fullName={fullName}
           onSelectFile={handleSelectFile}
           onSelectCategory={handleSelectCategory}
         />
