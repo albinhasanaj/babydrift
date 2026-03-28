@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ReactFlow,
   MiniMap,
   Controls,
   Background,
   BackgroundVariant,
-  useNodesState,
-  useEdgesState,
   type Node,
   type Edge,
   type NodeProps,
@@ -16,48 +14,141 @@ import {
   Position,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
 
 // --- Node style config ---
 const nodeStyles: Record<
   string,
-  { bg: string; border: string; text: string; borderStyle?: string }
+  { bg: string; border: string; text: string }
 > = {
-  PAGE: {
-    bg: "#e8420a",
-    border: "#e8420a",
-    text: "#ffffff",
-  },
-  COMPONENT: {
-    bg: "#c2410c",
-    border: "#c2410c",
-    text: "#ffffff",
-  },
-  FUNCTION: {
-    bg: "#1a1008",
-    border: "#f97316",
-    text: "#ffffff",
-  },
-  API: {
-    bg: "#92400e",
-    border: "#92400e",
-    text: "#ffffff",
-  },
-  UTILITY: {
-    bg: "#3d2010",
-    border: "#3d2010",
-    text: "#a87860",
-  },
-  DRIFT: {
-    bg: "#450a0a",
-    border: "#ef4444",
-    text: "#ef4444",
-  },
+  PAGE: { bg: "#e8420a", border: "#e8420a", text: "#ffffff" },
+  COMPONENT: { bg: "#c2410c", border: "#c2410c", text: "#ffffff" },
+  FUNCTION: { bg: "#1a1008", border: "#f97316", text: "#ffffff" },
+  API: { bg: "#92400e", border: "#92400e", text: "#ffffff" },
+  UTILITY: { bg: "#3d2010", border: "#3d2010", text: "#a87860" },
+  DRIFT: { bg: "#450a0a", border: "#ef4444", text: "#ef4444" },
 };
+
+// --- Tree data structure ---
+interface TreeNode {
+  id: string;
+  label: string;
+  type: string;
+  drift?: boolean;
+  children?: TreeNode[];
+}
+
+const flowTrees: TreeNode[] = [
+  {
+    id: "page-home",
+    label: "HomePage",
+    type: "PAGE",
+    children: [
+      { id: "comp-navbar-1", label: "NavBar", type: "COMPONENT" },
+    ],
+  },
+  {
+    id: "page-dashboard",
+    label: "DashboardPage",
+    type: "PAGE",
+    children: [
+      { id: "comp-navbar-2", label: "NavBar", type: "COMPONENT" },
+      {
+        id: "comp-usertable",
+        label: "UserTable",
+        type: "COMPONENT",
+        children: [
+          {
+            id: "fn-fetchuser",
+            label: "fetchUserData",
+            type: "FUNCTION",
+            children: [
+              {
+                id: "api-users",
+                label: "/api/users",
+                type: "API",
+                children: [
+                  { id: "util-supabase-1", label: "supabaseClient", type: "UTILITY" },
+                ],
+              },
+              { id: "util-logger", label: "logger", type: "UTILITY" },
+            ],
+          },
+        ],
+      },
+      { id: "comp-chart", label: "RevenueChart", type: "COMPONENT" },
+    ],
+  },
+  {
+    id: "page-settings",
+    label: "SettingsPage",
+    type: "PAGE",
+    children: [
+      {
+        id: "comp-authform",
+        label: "AuthForm",
+        type: "COMPONENT",
+        children: [
+          {
+            id: "fn-auth",
+            label: "authenticateUser",
+            type: "FUNCTION",
+            children: [
+              {
+                id: "api-auth",
+                label: "/api/auth",
+                type: "API",
+                children: [
+                  { id: "util-supabase-2", label: "supabaseClient", type: "UTILITY" },
+                ],
+              },
+            ],
+          },
+          { id: "fn-validate", label: "validateInput", type: "FUNCTION" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "fn-payment",
+    label: "handlePayment",
+    type: "DRIFT",
+    drift: true,
+    children: [
+      { id: "api-payments", label: "/api/payments", type: "API" },
+      { id: "fn-format", label: "formatLegacyDate", type: "DRIFT", drift: true },
+    ],
+  },
+];
+
+// --- Helpers to collect descendant IDs ---
+function getAllDescendantIds(trees: TreeNode[], id: string): string[] {
+  for (const tree of trees) {
+    if (tree.id === id) {
+      const ids: string[] = [];
+      const collect = (n: TreeNode) => {
+        if (n.children) for (const c of n.children) { ids.push(c.id); collect(c); }
+      };
+      collect(tree);
+      return ids;
+    }
+    if (tree.children) {
+      const found = getAllDescendantIds(tree.children, id);
+      if (found.length) return found;
+    }
+  }
+  return [];
+}
 
 // --- Custom node component ---
 function ComprendoNode({ data, selected }: NodeProps) {
-  const nodeData = data as { label: string; type: string; drift?: boolean };
+  const nodeData = data as {
+    label: string;
+    type: string;
+    drift?: boolean;
+    expandable?: boolean;
+    expanded?: boolean;
+  };
   const style = nodeStyles[nodeData.type] || nodeStyles.UTILITY;
   const isDrift = nodeData.type === "DRIFT";
   const isFunction = nodeData.type === "FUNCTION";
@@ -74,7 +165,7 @@ function ComprendoNode({ data, selected }: NodeProps) {
         fontSize: "13px",
         fontWeight: 600,
         fontFamily: "var(--font-geist-sans), Inter, sans-serif",
-        minWidth: "100px",
+        minWidth: "120px",
         textAlign: "center",
         boxShadow: selected
           ? `0 0 0 2px ${style.border}, 0 4px 24px ${style.border}40`
@@ -84,27 +175,34 @@ function ComprendoNode({ data, selected }: NodeProps) {
         alignItems: "center",
         justifyContent: "center",
         gap: "6px",
+        cursor: nodeData.expandable ? "pointer" : "default",
       }}
     >
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         style={{ background: style.border, border: "none", width: 6, height: 6 }}
       />
       {isDrift && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
       <span>{nodeData.label}</span>
+      {nodeData.expandable && (
+        <ChevronRight
+          className="h-3.5 w-3.5 shrink-0 transition-transform"
+          style={{
+            transform: nodeData.expanded ? "rotate(90deg)" : "rotate(0deg)",
+          }}
+        />
+      )}
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         style={{ background: style.border, border: "none", width: 6, height: 6 }}
       />
     </div>
   );
 }
 
-const nodeTypes = {
-  comprendo: ComprendoNode,
-};
+const nodeTypes = { comprendo: ComprendoNode };
 
 // --- Legend ---
 function Legend() {
@@ -172,264 +270,136 @@ function Legend() {
   );
 }
 
-// --- Mock data ---
-const initialNodes: Node[] = [
-  // Pages
-  {
-    id: "page-home",
-    type: "comprendo",
-    position: { x: 100, y: 50 },
-    data: { label: "HomePage", type: "PAGE" },
-  },
-  {
-    id: "page-dashboard",
-    type: "comprendo",
-    position: { x: 400, y: 50 },
-    data: { label: "DashboardPage", type: "PAGE" },
-  },
-  {
-    id: "page-settings",
-    type: "comprendo",
-    position: { x: 700, y: 50 },
-    data: { label: "SettingsPage", type: "PAGE" },
-  },
+// --- Layout algorithm ---
+const H_GAP = 250;
+const V_GAP = 70;
+const ROOT_GAP = 20;
 
-  // Components
-  {
-    id: "comp-navbar",
-    type: "comprendo",
-    position: { x: 100, y: 200 },
-    data: { label: "NavBar", type: "COMPONENT" },
-  },
-  {
-    id: "comp-authform",
-    type: "comprendo",
-    position: { x: 400, y: 200 },
-    data: { label: "AuthForm", type: "COMPONENT" },
-  },
-  {
-    id: "comp-usertable",
-    type: "comprendo",
-    position: { x: 700, y: 200 },
-    data: { label: "UserTable", type: "COMPONENT" },
-  },
-  {
-    id: "comp-chart",
-    type: "comprendo",
-    position: { x: 550, y: 350 },
-    data: { label: "RevenueChart", type: "COMPONENT" },
-  },
+function getEdgeStyle(parentType: string, childType: string): Partial<Edge> {
+  if (parentType === "PAGE" && childType === "COMPONENT") {
+    return { style: { stroke: "#a87860", strokeDasharray: "5,5" }, animated: false };
+  }
+  if (
+    (parentType === "COMPONENT" || parentType === "FUNCTION") &&
+    childType === "FUNCTION"
+  ) {
+    return { style: { stroke: "#f97316" }, animated: true };
+  }
+  if (
+    (parentType === "FUNCTION" || parentType === "DRIFT") &&
+    childType === "API"
+  ) {
+    return { style: { stroke: "#fbbf24" }, animated: true };
+  }
+  if (parentType === "DRIFT" || childType === "DRIFT") {
+    return { style: { stroke: "#ef4444", strokeDasharray: "5,5" } };
+  }
+  if (childType === "UTILITY") {
+    return { style: { stroke: "#a87860", strokeDasharray: "5,5" } };
+  }
+  return { style: { stroke: "#f97316" } };
+}
 
-  // Functions
-  {
-    id: "fn-fetchuser",
-    type: "comprendo",
-    position: { x: 250, y: 380 },
-    data: { label: "fetchUserData", type: "FUNCTION" },
-  },
-  {
-    id: "fn-auth",
-    type: "comprendo",
-    position: { x: 400, y: 500 },
-    data: { label: "authenticateUser", type: "FUNCTION" },
-  },
-  {
-    id: "fn-payment",
-    type: "comprendo",
-    position: { x: 700, y: 380 },
-    data: { label: "handlePayment", type: "DRIFT", drift: true },
-  },
-  {
-    id: "fn-format",
-    type: "comprendo",
-    position: { x: 850, y: 500 },
-    data: { label: "formatLegacyDate", type: "DRIFT", drift: true },
-  },
-  {
-    id: "fn-validate",
-    type: "comprendo",
-    position: { x: 100, y: 500 },
-    data: { label: "validateInput", type: "FUNCTION" },
-  },
+function getSubtreeHeight(node: TreeNode, expanded: Set<string>): number {
+  if (!expanded.has(node.id) || !node.children?.length) return V_GAP;
+  let total = 0;
+  for (const child of node.children) {
+    total += getSubtreeHeight(child, expanded);
+  }
+  return Math.max(V_GAP, total);
+}
 
-  // APIs
-  {
-    id: "api-users",
-    type: "comprendo",
-    position: { x: 250, y: 620 },
-    data: { label: "/api/users", type: "API" },
-  },
-  {
-    id: "api-auth",
-    type: "comprendo",
-    position: { x: 500, y: 620 },
-    data: { label: "/api/auth", type: "API" },
-  },
-  {
-    id: "api-payments",
-    type: "comprendo",
-    position: { x: 750, y: 620 },
-    data: { label: "/api/payments", type: "API" },
-  },
+function computeLayout(
+  trees: TreeNode[],
+  expanded: Set<string>
+): { nodes: Node[]; edges: Edge[] } {
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+  let currentY = 0;
 
-  // Utils
-  {
-    id: "util-logger",
-    type: "comprendo",
-    position: { x: 100, y: 750 },
-    data: { label: "logger", type: "UTILITY" },
-  },
-  {
-    id: "util-supabase",
-    type: "comprendo",
-    position: { x: 400, y: 750 },
-    data: { label: "supabaseClient", type: "UTILITY" },
-  },
-];
+  function layoutNode(node: TreeNode, x: number, y: number) {
+    const isExp = expanded.has(node.id);
+    const hasChildren = !!node.children?.length;
+    const subtreeH = getSubtreeHeight(node, expanded);
+    const nodeY = y + subtreeH / 2 - V_GAP / 2;
 
-const initialEdges: Edge[] = [
-  // Pages import components (dashed warm muted)
-  {
-    id: "e1",
-    source: "page-home",
-    target: "comp-navbar",
-    type: "smoothstep",
-    animated: false,
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
-  {
-    id: "e2",
-    source: "page-dashboard",
-    target: "comp-navbar",
-    type: "smoothstep",
-    animated: false,
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
-  {
-    id: "e3",
-    source: "page-dashboard",
-    target: "comp-chart",
-    type: "smoothstep",
-    animated: false,
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
-  {
-    id: "e4",
-    source: "page-dashboard",
-    target: "comp-usertable",
-    type: "smoothstep",
-    animated: false,
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
-  {
-    id: "e5",
-    source: "page-settings",
-    target: "comp-authform",
-    type: "smoothstep",
-    animated: false,
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
+    nodes.push({
+      id: node.id,
+      type: "comprendo",
+      position: { x, y: nodeY },
+      data: {
+        label: node.label,
+        type: node.type,
+        drift: node.drift,
+        expandable: hasChildren,
+        expanded: isExp,
+      },
+    });
 
-  // Components call functions (orange animated)
-  {
-    id: "e6",
-    source: "comp-usertable",
-    target: "fn-fetchuser",
-    animated: true,
-    style: { stroke: "#f97316" },
-  },
-  {
-    id: "e7",
-    source: "comp-authform",
-    target: "fn-auth",
-    animated: true,
-    style: { stroke: "#f97316" },
-  },
-  {
-    id: "e8",
-    source: "comp-chart",
-    target: "fn-fetchuser",
-    animated: true,
-    style: { stroke: "#f97316" },
-  },
-  {
-    id: "e9",
-    source: "fn-validate",
-    target: "fn-auth",
-    animated: true,
-    style: { stroke: "#f97316" },
-  },
+    if (isExp && hasChildren) {
+      let childY = y;
+      for (const child of node.children!) {
+        const edgeStyle = getEdgeStyle(node.type, child.type);
+        edges.push({
+          id: `e-${node.id}-${child.id}`,
+          source: node.id,
+          target: child.id,
+          type: "smoothstep",
+          ...edgeStyle,
+        });
+        layoutNode(child, x + H_GAP, childY);
+        childY += getSubtreeHeight(child, expanded);
+      }
+    }
+  }
 
-  // Functions call APIs (golden data flow)
-  {
-    id: "e10",
-    source: "fn-fetchuser",
-    target: "api-users",
-    animated: true,
-    style: { stroke: "#fbbf24" },
-  },
-  {
-    id: "e11",
-    source: "fn-auth",
-    target: "api-auth",
-    animated: true,
-    style: { stroke: "#fbbf24" },
-  },
-  {
-    id: "e12",
-    source: "fn-payment",
-    target: "api-payments",
-    animated: true,
-    style: { stroke: "#fbbf24" },
-  },
+  for (const tree of trees) {
+    layoutNode(tree, 0, currentY);
+    currentY += getSubtreeHeight(tree, expanded) + ROOT_GAP;
+  }
 
-  // Utils connections (dashed)
-  {
-    id: "e13",
-    source: "api-users",
-    target: "util-supabase",
-    type: "smoothstep",
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
-  {
-    id: "e14",
-    source: "api-auth",
-    target: "util-supabase",
-    type: "smoothstep",
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
-  {
-    id: "e15",
-    source: "fn-fetchuser",
-    target: "util-logger",
-    type: "smoothstep",
-    style: { stroke: "#a87860", strokeDasharray: "5,5" },
-  },
+  return { nodes, edges };
+}
 
-  // Drift nodes - red dashed
-  {
-    id: "e16",
-    source: "fn-payment",
-    target: "fn-format",
-    style: { stroke: "#ef4444", strokeDasharray: "5,5" },
-  },
-];
-
+// --- Main component ---
 interface FlowGraphProps {
   onNodeSelect?: (nodeId: string | null) => void;
 }
 
 export function FlowGraph({ onNodeSelect }: FlowGraphProps) {
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+
+  const toggleExpand = useCallback((nodeId: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+        for (const desc of getAllDescendantIds(flowTrees, nodeId)) {
+          next.delete(desc);
+        }
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  const { nodes, edges } = useMemo(
+    () => computeLayout(flowTrees, expanded),
+    [expanded]
+  );
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
+      const data = node.data as { expandable?: boolean };
+      if (data.expandable) {
+        toggleExpand(node.id);
+      }
       setSelectedNode((prev) => (prev === node.id ? null : node.id));
       onNodeSelect?.(node.id);
     },
-    [onNodeSelect]
+    [onNodeSelect, toggleExpand]
   );
 
   const onPaneClick = useCallback(() => {
@@ -437,13 +407,11 @@ export function FlowGraph({ onNodeSelect }: FlowGraphProps) {
     onNodeSelect?.(null);
   }, [onNodeSelect]);
 
-  // Compute styles for highlight/dim
+  // Highlight / dim based on selection
   const connectedNodeIds = selectedNode
     ? new Set(
         edges
-          .filter(
-            (e) => e.source === selectedNode || e.target === selectedNode
-          )
+          .filter((e) => e.source === selectedNode || e.target === selectedNode)
           .flatMap((e) => [e.source, e.target])
       )
     : null;
@@ -471,11 +439,10 @@ export function FlowGraph({ onNodeSelect }: FlowGraphProps) {
       <ReactFlow
         nodes={styledNodes}
         edges={styledEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
+        nodesDraggable={false}
         fitView
         fitViewOptions={{ padding: 0.3 }}
         proOptions={{ hideAttribution: true }}
