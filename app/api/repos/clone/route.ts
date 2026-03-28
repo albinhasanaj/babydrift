@@ -6,8 +6,7 @@ import { execSync } from "child_process";
 import path from "path";
 import fs from "fs";
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-const REPOS_DIR = path.join(DATA_DIR, "repos");
+const REPOS_DIR = process.env.REPOS_DIR ?? path.join(process.cwd(), "data/repos");
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);

@@ -47,9 +47,25 @@ function migrate(db: Database.Database) {
       updated_at TEXT,
       cloned_at TEXT,
       clone_path TEXT,
+      scan_status TEXT DEFAULT 'none',
+      scan_result TEXT,
+      scanned_at TEXT,
       user_id INTEGER REFERENCES users(id)
     );
   `);
+
+  // Add scan columns to existing repos table if missing
+  const columns = db.pragma("table_info(repos)") as Array<{ name: string }>;
+  const columnNames = new Set(columns.map((c) => c.name));
+  if (!columnNames.has("scan_status")) {
+    db.exec("ALTER TABLE repos ADD COLUMN scan_status TEXT DEFAULT 'none'");
+  }
+  if (!columnNames.has("scan_result")) {
+    db.exec("ALTER TABLE repos ADD COLUMN scan_result TEXT");
+  }
+  if (!columnNames.has("scanned_at")) {
+    db.exec("ALTER TABLE repos ADD COLUMN scanned_at TEXT");
+  }
 }
 
 export const db = {
@@ -136,5 +152,25 @@ export const db = {
         "UPDATE repos SET cloned_at = datetime('now'), clone_path = ? WHERE id = ?"
       )
       .run(clonePath, repoId);
+  },
+
+  setScanStatus(repoId: number, status: string) {
+    getDb()
+      .prepare("UPDATE repos SET scan_status = ? WHERE id = ?")
+      .run(status, repoId);
+  },
+
+  setScanResult(repoId: number, result: string) {
+    getDb()
+      .prepare(
+        "UPDATE repos SET scan_status = 'done', scan_result = ?, scanned_at = datetime('now') WHERE id = ?"
+      )
+      .run(result, repoId);
+  },
+
+  getScanStatus(owner: string, name: string) {
+    return getDb()
+      .prepare("SELECT scan_status, scanned_at FROM repos WHERE owner = ? AND name = ?")
+      .get(owner, name) as { scan_status: string; scanned_at: string | null } | undefined;
   },
 };
